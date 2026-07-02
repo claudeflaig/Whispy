@@ -7,26 +7,119 @@ struct SettingsContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Two-tab segmented picker
+            settingsHero
+
             Picker("", selection: $selectedTab) {
-                Text("Anpassen").tag(0)
-                Text("Zugang").tag(1)
+                Text("Workflows & Design").tag(0)
+                Text("Zugang & System").tag(1)
             }
             .pickerStyle(.segmented)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 22)
+            .padding(.top, 10)
+            .padding(.bottom, 12)
 
             ScrollView {
                 if selectedTab == 0 {
                     CustomizeSettingsView(appState: appState)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
                 } else {
                     AccessSettingsView(appState: appState)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(settingsBackground)
         }
+        .frame(minWidth: 760, minHeight: 800)
+        .background(settingsBackground)
         .onAppear {
             appState.refreshAccessibilityPermission()
             selectedTab = defaultTabSelection
+        }
+    }
+
+    private var settingsHero: some View {
+        HStack(alignment: .center, spacing: 16) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.green.opacity(0.95), Color.blue.opacity(0.86), Color.purple.opacity(0.70)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .shadow(color: .green.opacity(0.22), radius: 20, y: 8)
+                Image(systemName: "waveform.badge.microphone")
+                    .font(.system(size: 26, weight: .black))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 58, height: 58)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Whispy Studio")
+                    .font(.system(size: 24, weight: .black, design: .rounded))
+                    .foregroundStyle(.primary)
+                Text("Lokales WhisperKit, OpenAI und eigene Workflows — alles über deine Stimme.")
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 20)
+
+            HStack(spacing: 8) {
+                heroMetric(title: "Lokal", value: "fn", color: .green)
+                heroMetric(title: "OpenAI", value: "fn ⇧", color: .blue)
+                heroMetric(title: "Status", value: appState.accessibilityPermissionGranted ? "Bereit" : "Setup", color: appState.accessibilityPermissionGranted ? .green : .orange)
+            }
+        }
+        .padding(22)
+        .background(
+            ZStack {
+                LinearGradient(
+                    colors: [Color.white.opacity(0.22), Color.white.opacity(0.06)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                Rectangle().fill(.thinMaterial)
+            }
+        )
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.primary.opacity(0.06)).frame(height: 0.7)
+        }
+    }
+
+    private func heroMetric(title: String, value: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title.uppercased())
+                .font(.system(size: 8.5, weight: .black))
+                .tracking(0.55)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.system(size: 13.5, weight: .black, design: .rounded))
+                .foregroundStyle(color)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(color.opacity(0.095))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .strokeBorder(color.opacity(0.16), lineWidth: 0.8)
+        )
+    }
+
+    private var settingsBackground: some View {
+        ZStack {
+            Color(nsColor: .windowBackgroundColor)
+            LinearGradient(
+                colors: [Color.green.opacity(0.055), Color.blue.opacity(0.05), Color.purple.opacity(0.045)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
         }
     }
 
@@ -48,8 +141,66 @@ private struct SectionLabel: View {
 
     var body: some View {
         Text(text.uppercased())
-            .font(.system(size: 11, weight: .medium))
+            .font(.system(size: 10.5, weight: .semibold))
+            .tracking(0.45)
             .foregroundStyle(.secondary)
+    }
+}
+
+private struct SettingsCard<Content: View>: View {
+    let title: String
+    let subtitle: String?
+    let systemImage: String
+    var accent: Color = .blue
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [accent.opacity(0.22), accent.opacity(0.08)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    Image(systemName: systemImage)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(accent)
+                }
+                .frame(width: 38, height: 38)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            content
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(.thinMaterial)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.20), lineWidth: 0.8)
+        )
+        .shadow(color: .black.opacity(0.065), radius: 18, y: 8)
     }
 }
 
@@ -93,7 +244,7 @@ struct AccessSettingsView: View {
                             .font(.system(size: 11.5, weight: .semibold))
                             .foregroundStyle(.primary)
 
-                        Text("Öffne Bedienungshilfen und aktiviere Blitztext. Falls Blitztext schon aktiv ist, einmal aus- und wieder einschalten.")
+                        Text("Öffne Bedienungshilfen und aktiviere Whispy. Falls Whispy schon aktiv ist, einmal aus- und wieder einschalten.")
                             .font(.system(size: 10.5))
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -178,7 +329,7 @@ struct AccessSettingsView: View {
                     .textSelection(.enabled)
 
                 if !BlitztextInstallLocationService.otherInstalledBundleURLs.isEmpty {
-                    Text("Weitere Blitztext-Kopien auf diesem Mac können doppelte Login-Items auslösen.")
+                    Text("Weitere Whispy-Kopien auf diesem Mac können doppelte Login-Items auslösen.")
                         .font(.system(size: 10.5))
                         .foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
@@ -222,7 +373,7 @@ struct AccessSettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 if !currentInstallLocation.isCanonicalInstall {
-                    Text("Hotkeys und Login-Start laufen am stabilsten, wenn Blitztext aus /Applications gestartet wird.")
+                    Text("Hotkeys und Login-Start laufen am stabilsten, wenn Whispy aus /Applications gestartet wird.")
                         .font(.system(size: 10.5))
                         .foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
@@ -237,7 +388,7 @@ struct AccessSettingsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 SectionLabel(text: "Beim Anmelden")
 
-                Toggle("Blitztext automatisch starten", isOn: Binding(
+                Toggle("Whispy automatisch starten", isOn: Binding(
                     get: { launchAtLoginService.isEnabled },
                     set: { launchAtLoginService.setEnabled($0) }
                 ))
@@ -263,7 +414,7 @@ struct AccessSettingsView: View {
             VStack(alignment: .leading, spacing: 6) {
                 SectionLabel(text: "Hinweis")
 
-                Text("Fuer direktes Einfuegen: Blitztext einmal nach /Applications legen und danach Mikrofon sowie Bedienungshilfen erlauben.")
+                Text("Fuer direktes Einfuegen: Whispy einmal nach /Applications legen und danach Mikrofon sowie Bedienungshilfen erlauben.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -282,7 +433,7 @@ struct AccessSettingsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 SectionLabel(text: "Sauber Entfernen")
 
-                Text("Vor dem Löschen Blitztext erst auf diesem Mac bereinigen. So verschwinden Anmeldestart und lokale Daten sauber aus dem Weg.")
+                Text("Vor dem Löschen Whispy erst auf diesem Mac bereinigen. So verschwinden Anmeldestart und lokale Daten sauber aus dem Weg.")
                     .font(.system(size: 10.5))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -291,7 +442,7 @@ struct AccessSettingsView: View {
                     Toggle("Zugangsdaten und Einstellungen dieses Macs löschen", isOn: $deleteLocalDataOnCleanup)
                         .toggleStyle(.switch)
 
-                    Text("Danach Blitztext beenden und die App aus /Applications löschen. Bereits verwaiste alte Login-Items können in den Systemeinstellungen einmalig manuell entfernt werden.")
+                    Text("Danach Whispy beenden und die App aus /Applications löschen. Bereits verwaiste alte Login-Items können in den Systemeinstellungen einmalig manuell entfernt werden.")
                         .font(.system(size: 10.5))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -358,6 +509,7 @@ struct AccessSettingsView: View {
         .onAppear {
             launchAtLoginService.refresh()
             refreshInstallState()
+            appState.refreshAccessibilityPermission()
             load()
             if !appState.hasValue(for: .openAIAPIKey) {
                 editingAPIKey = true
@@ -425,11 +577,11 @@ struct AccessSettingsView: View {
     private var installationHeadline: String {
         switch currentInstallLocation {
         case .applications:
-            return "Blitztext liegt am richtigen Ort."
+            return "Whispy liegt am richtigen Ort."
         case .userApplications:
-            return "Blitztext liegt noch in ~/Applications."
+            return "Whispy liegt noch in ~/Applications."
         case .outsideApplications:
-            return "Blitztext liegt noch nicht in /Applications."
+            return "Whispy liegt noch nicht in /Applications."
         case .unknown:
             return "Der Installationsort konnte nicht sicher erkannt werden."
         }
@@ -443,11 +595,11 @@ struct AccessSettingsView: View {
             }
             return "Diese Kopie ist korrekt. Zusätzliche Kopien solltest du später entfernen."
         case .userApplications:
-            return "Fuer stabile Hotkeys und Login-Items sollte Blitztext nur aus /Applications laufen."
+            return "Fuer stabile Hotkeys und Login-Items sollte Whispy nur aus /Applications laufen."
         case .outsideApplications:
-            return "Verschiebe Blitztext einmal nach /Applications, damit Anmeldestart und Hotkeys sauber bleiben."
+            return "Verschiebe Whispy einmal nach /Applications, damit Anmeldestart und Hotkeys sauber bleiben."
         case .unknown:
-            return "Öffne Blitztext möglichst direkt aus /Applications."
+            return "Öffne Whispy möglichst direkt aus /Applications."
         }
     }
 
@@ -485,8 +637,8 @@ struct AccessSettingsView: View {
 
         if report.failedItems.isEmpty {
             cleanupStatusText = deleteLocalDataOnCleanup
-                ? "Anmeldestart und lokale Daten wurden bereinigt. Jetzt Blitztext beenden und aus /Applications löschen."
-                : "Anmeldestart wurde deaktiviert. Jetzt Blitztext beenden und aus /Applications löschen."
+                ? "Anmeldestart und lokale Daten wurden bereinigt. Jetzt Whispy beenden und aus /Applications löschen."
+                : "Anmeldestart wurde deaktiviert. Jetzt Whispy beenden und aus /Applications löschen."
             showCleanupOptions = false
 
             let urlsToReveal = report.knownInstallBundleURLs.isEmpty
@@ -523,7 +675,7 @@ struct CustomizeSettingsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 18) {
 
             // MARK: Lokaler Modus
             VStack(alignment: .leading, spacing: 10) {
@@ -593,42 +745,142 @@ struct CustomizeSettingsView: View {
                 }
             }
 
-            // MARK: Tastenkuerzel
-            VStack(alignment: .leading, spacing: 10) {
-                SectionLabel(text: "Tastenk\u{00FC}rzel")
-
-                VStack(spacing: 6) {
-                    ForEach(WorkflowType.mainMenuCases) { type in
-                        HStack {
-                            Text(type.hotkeyLabel)
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 124, alignment: .leading)
-                            Text(appState.displayName(for: type))
-                                .font(.system(size: 11.5, weight: .medium))
-                            Spacer()
-                        }
+            // MARK: App-Kontext
+            SettingsCard(
+                title: "App-Kontext",
+                subtitle: "Whispy erkennt die Ziel-App und nutzt Kategorie und Stil als Kontext. Du kannst die Zuordnung manuell anpassen.",
+                systemImage: "app.connected.to.app.below.fill",
+                accent: .green
+            ) {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(AppContextRule.Category.allCases) { category in
+                        AppContextRuleRow(rule: appContextRuleBinding(for: category))
                     }
-                }
-
-                // Mode picker
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Modus")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-
-                    Picker("", selection: $appState.appSettings.hotkeyMode) {
-                        ForEach(HotkeyMode.allCases) { mode in
-                            Text(mode.displayName).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.segmented)
                 }
             }
 
-            // MARK: Blitztext+
+            // MARK: Verlauf
+            SettingsCard(
+                title: "Verlauf",
+                subtitle: "Die letzten 20 Diktate bleiben lokal gespeichert. Du kannst sie kopieren oder erneut einfügen.",
+                systemImage: "clock.arrow.circlepath",
+                accent: .blue
+            ) {
+                VStack(alignment: .leading, spacing: 10) {
+                    if appState.dictationHistory.isEmpty {
+                        Text("Noch keine Diktate im Verlauf.")
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(appState.dictationHistory.prefix(20)) { entry in
+                            HistoryEntryRow(entry: entry) {
+                                appState.copyToClipboard(entry.finalText)
+                            } pasteAction: {
+                                appState.pasteHistoryEntry(entry)
+                            }
+                        }
+
+                        HStack {
+                            Text("Es werden maximal 20 Einträge gespeichert.")
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Verlauf löschen") {
+                                appState.clearDictationHistory()
+                            }
+                            .buttonStyle(SubtleButtonStyle())
+                            .font(.system(size: 10.5, weight: .medium))
+                        }
+                    }
+                }
+            }
+
+            // MARK: Tastenkuerzel
+            SettingsCard(
+                title: "Tastenkürzel",
+                subtitle: "Klicke auf ein Kürzel und drücke anschließend deine gewünschte Tastenkombination.",
+                systemImage: "keyboard",
+                accent: .purple
+            ) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "arrow.triangle.branch")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.green)
+                            .frame(width: 18, height: 18)
+                        Text("Du kannst lokal und OpenAI parallel verwenden. Weise z.B. \"Whispy Lokal\" fn zu und \"Whispy OpenAI\" fn + Shift.")
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.green.opacity(0.07))
+                    )
+
+                    ForEach(WorkflowType.userVisibleHotkeyCases) { type in
+                        HotkeyWorkflowRow(
+                            title: appState.displayName(for: type),
+                            subtitle: appState.workflowSubtitle(for: type),
+                            icon: type.icon,
+                            accent: workflowAccentColor(type),
+                            combo: hotkeyComboBinding(for: type),
+                            hotkeyLabel: appState.hotkeyLabel(for: type)
+                        )
+                    }
+                }
+
+                if !hotkeyValidationMessages.isEmpty {
+                    VStack(alignment: .leading, spacing: 5) {
+                        ForEach(hotkeyValidationMessages, id: \.self) { message in
+                            HStack(alignment: .top, spacing: 6) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 10, weight: .semibold))
+                                Text(message)
+                                    .font(.system(size: 10.5))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .foregroundStyle(.orange)
+                    .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+
+                HStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Aufnahmemodus")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                        Picker("", selection: $appState.appSettings.hotkeyMode) {
+                            ForEach(HotkeyMode.allCases) { mode in
+                                Text(mode.displayName).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Button {
+                        let defaults = WorkflowType.defaultHotkeyCombos
+                        appState.appSettings.hotkeyCombos = Dictionary(uniqueKeysWithValues: WorkflowType.userVisibleHotkeyCases.map { type in
+                            (type, defaults[type] ?? type.defaultHotkeyCombo)
+                        })
+                    } label: {
+                        Label("Zurücksetzen", systemImage: "arrow.counterclockwise")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .buttonStyle(SoftPillButtonStyle())
+                }
+            }
+
+            // MARK: Whispy+
             VStack(alignment: .leading, spacing: 10) {
-                SectionLabel(text: "Blitztext+")
+                SectionLabel(text: "Whispy+")
 
                 // Tone
                 VStack(alignment: .leading, spacing: 8) {
@@ -681,9 +933,9 @@ struct CustomizeSettingsView: View {
                 }
             }
 
-            // MARK: Blitztext $%&!
+            // MARK: Whispy $%&!
             VStack(alignment: .leading, spacing: 10) {
-                SectionLabel(text: "Blitztext $%&!")
+                SectionLabel(text: "Whispy $%&!")
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Eigene Anweisung")
@@ -710,9 +962,9 @@ struct CustomizeSettingsView: View {
                 }
             }
 
-            // MARK: Blitztext :)
+            // MARK: Whispy :)
             VStack(alignment: .leading, spacing: 10) {
-                SectionLabel(text: "Blitztext :)")
+                SectionLabel(text: "Whispy :)")
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Emoji-Dichte")
@@ -784,6 +1036,65 @@ struct CustomizeSettingsView: View {
         .padding(16)
     }
 
+    private func workflowAccentColor(_ type: WorkflowType) -> Color {
+        switch type {
+        case .transcription: return .blue
+        case .localTranscription: return .green
+        case .textImprover: return .purple
+        case .dampfAblassen: return .orange
+        case .emojiText: return .cyan
+        }
+    }
+
+    private func appContextRuleBinding(for category: AppContextRule.Category) -> Binding<AppContextRule> {
+        Binding(
+            get: {
+                appState.appSettings.appContextRules.first { $0.category == category }
+                    ?? AppContextRule.defaults.first { $0.category == category }
+                    ?? AppContextRule(category: category, style: .natural, bundleIdentifiers: [])
+            },
+            set: { newValue in
+                var rules = appState.appSettings.appContextRules
+                if let index = rules.firstIndex(where: { $0.category == category }) {
+                    rules[index] = newValue
+                } else {
+                    rules.append(newValue)
+                }
+                appState.appSettings.appContextRules = AppSettings.mergedContextRules(rules)
+            }
+        )
+    }
+
+    private func hotkeyComboBinding(for type: WorkflowType) -> Binding<HotkeyCombo> {
+        Binding(
+            get: {
+                appState.appSettings.hotkeyCombos[type] ?? type.defaultHotkeyCombo
+            },
+            set: { newValue in
+                appState.appSettings.hotkeyCombos[type] = newValue
+            }
+        )
+    }
+
+    private var hotkeyValidationMessages: [String] {
+        var messages: [String] = []
+        let combos = WorkflowType.userVisibleHotkeyCases.map { type in
+            (type, appState.appSettings.hotkeyCombos[type] ?? type.defaultHotkeyCombo)
+        }
+
+        for (type, combo) in combos where combo.isEmpty {
+            messages.append("\(appState.displayName(for: type)) hat kein Tastenkürzel.")
+        }
+
+        let grouped = Dictionary(grouping: combos.filter { !$0.1.isEmpty }, by: { $0.1 })
+        for (_, entries) in grouped where entries.count > 1 {
+            let names = entries.map { appState.displayName(for: $0.0) }.joined(separator: ", ")
+            messages.append("Doppeltes Tastenkürzel für: \(names).")
+        }
+
+        return messages
+    }
+
     private func addTerm() {
         let trimmed = newTerm.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, !appState.textImprovementSettings.customTerms.contains(trimmed) else { return }
@@ -791,6 +1102,371 @@ struct CustomizeSettingsView: View {
             appState.textImprovementSettings.customTerms.append(trimmed)
         }
         newTerm = ""
+    }
+}
+
+
+private struct AppContextRuleRow: View {
+    @Binding var rule: AppContextRule
+
+    private var appsText: Binding<String> {
+        Binding(
+            get: { rule.bundleIdentifiers.joined(separator: ", ") },
+            set: { newValue in
+                rule.bundleIdentifiers = newValue
+                    .split(separator: ",")
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+            }
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.green.opacity(0.12))
+                    Image(systemName: rule.category.icon)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.green)
+                }
+                .frame(width: 32, height: 32)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(rule.category.displayName)
+                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                    Text("Bundle IDs kommagetrennt, z.B. com.apple.mail")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Picker("", selection: $rule.style) {
+                    ForEach(AppContextRule.Style.allCases) { style in
+                        Text(style.displayName).tag(style)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 150)
+                .controlSize(.small)
+            }
+
+            TextField("Bundle IDs", text: appsText)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 10.5, design: .monospaced))
+        }
+        .padding(11)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.primary.opacity(0.035))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.055), lineWidth: 0.6)
+        )
+    }
+}
+
+private struct HistoryEntryRow: View {
+    let entry: DictationHistoryEntry
+    let copyAction: () -> Void
+    let pasteAction: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.blue.opacity(0.12))
+                Image(systemName: entry.workflowType.icon)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.blue)
+            }
+            .frame(width: 32, height: 32)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(entry.workflowName)
+                        .font(.system(size: 11.5, weight: .bold))
+                    Text(entry.contextCategory.displayName)
+                        .font(.system(size: 8.5, weight: .black))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(Color.primary.opacity(0.055)))
+                    if let appName = entry.appName {
+                        Text(appName)
+                            .font(.system(size: 9.5))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+
+                Text(entry.finalText)
+                    .font(.system(size: 10.8, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 8)
+
+            VStack(spacing: 5) {
+                Button("Kopieren", action: copyAction)
+                    .buttonStyle(SubtleButtonStyle())
+                    .font(.system(size: 10, weight: .medium))
+                Button("Einfügen", action: pasteAction)
+                    .buttonStyle(SubtleButtonStyle())
+                    .font(.system(size: 10, weight: .medium))
+            }
+        }
+        .padding(11)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.primary.opacity(0.035))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.055), lineWidth: 0.6)
+        )
+    }
+}
+
+private struct HotkeyWorkflowRow: View {
+    let title: String
+    let subtitle: String
+    let icon: String
+    let accent: Color
+    @Binding var combo: HotkeyCombo
+    let hotkeyLabel: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 11) {
+                ZStack {
+                    Circle()
+                        .fill(accent.opacity(0.13))
+                    Image(systemName: icon)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(accent)
+                }
+                .frame(width: 32, height: 32)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Text(subtitle)
+                        .font(.system(size: 10.8))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 8) {
+                Text("Auslösen mit")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(.tertiary)
+                Spacer(minLength: 12)
+                HotkeyComboPicker(combo: $combo, title: hotkeyLabel)
+            }
+            .padding(.leading, 43)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .background(
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .fill(Color(nsColor: .windowBackgroundColor).opacity(0.58))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.045), lineWidth: 0.6)
+        )
+    }
+}
+
+private struct HotkeyComboPicker: View {
+    @Binding var combo: HotkeyCombo
+    let title: String
+
+    @State private var isRecording = false
+    @State private var localFlagsMonitor: Any?
+    @State private var localKeyDownMonitor: Any?
+    @State private var pendingModifierSave: DispatchWorkItem?
+    @State private var recordedFunction = false
+    @State private var recordedCapsLock = false
+    @State private var recordedShift = false
+    @State private var recordedControl = false
+    @State private var recordedOption = false
+    @State private var recordedCommand = false
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Button {
+                startRecording()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: isRecording ? "record.circle.fill" : "keyboard.badge.ellipsis")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(isRecording ? .red : .secondary)
+                    Text(isRecording ? "Kombination drücken …" : title)
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(labelColor)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .frame(minWidth: 168, alignment: .center)
+                .background(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(isRecording ? Color.red.opacity(0.10) : Color(nsColor: .controlBackgroundColor).opacity(0.92))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .strokeBorder(borderColor, lineWidth: 0.8)
+                )
+            }
+            .buttonStyle(SubtleButtonStyle())
+            .fixedSize(horizontal: true, vertical: false)
+
+            Button {
+                combo = HotkeyCombo()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(combo.isEmpty ? .quaternary : .tertiary)
+            }
+            .buttonStyle(SubtleButtonStyle())
+            .help("Kürzel löschen")
+        }
+        .onDisappear {
+            stopRecording()
+        }
+    }
+
+    private var labelColor: Color {
+        if isRecording { return .red }
+        return combo.isEmpty ? .orange : .secondary
+    }
+
+    private var borderColor: Color {
+        if isRecording { return .red.opacity(0.45) }
+        return combo.isEmpty ? .orange.opacity(0.5) : .primary.opacity(0.05)
+    }
+
+    private func startRecording() {
+        stopRecording()
+        resetRecordedModifiers()
+        isRecording = true
+
+        localFlagsMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+            updateRecordedModifiers(from: event)
+            scheduleModifierOnlySave()
+            return nil
+        }
+
+        localKeyDownMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 53 { // Escape cancels recording
+                stopRecording()
+                return nil
+            }
+
+            pendingModifierSave?.cancel()
+            combo = HotkeyCombo(event: event)
+            stopRecording()
+            return nil
+        }
+    }
+
+    private func updateRecordedModifiers(from event: NSEvent) {
+        let flags = event.modifierFlags.hotkeyRelevantFlags
+        switch event.keyCode {
+        case 54, 55:
+            recordedCommand = flags.contains(.command)
+        case 56, 60:
+            recordedShift = flags.contains(.shift)
+        case 58, 61:
+            recordedOption = flags.contains(.option)
+        case 59, 62:
+            recordedControl = flags.contains(.control)
+        case 63:
+            recordedFunction = true
+        default:
+            if flags.contains(.function) { recordedFunction = true }
+        }
+    }
+
+    private func scheduleModifierOnlySave() {
+        let recordedCombo = currentRecordedModifierCombo()
+        guard !recordedCombo.isEmpty else { return }
+
+        pendingModifierSave?.cancel()
+        let workItem = DispatchWorkItem {
+            combo = recordedCombo
+            stopRecording()
+        }
+        pendingModifierSave = workItem
+
+        // Give the user a short moment to complete modifier-only combinations like Shift + fn.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: workItem)
+    }
+
+    private func currentRecordedModifierCombo() -> HotkeyCombo {
+        HotkeyCombo(
+            function: recordedFunction,
+            capsLock: false,
+            shift: recordedShift,
+            control: recordedControl,
+            option: recordedOption,
+            command: recordedCommand
+        )
+    }
+
+    private func resetRecordedModifiers() {
+        recordedFunction = false
+        recordedCapsLock = false
+        recordedShift = false
+        recordedControl = false
+        recordedOption = false
+        recordedCommand = false
+    }
+
+    private func stopRecording() {
+        pendingModifierSave?.cancel()
+        pendingModifierSave = nil
+
+        if let localKeyDownMonitor {
+            NSEvent.removeMonitor(localKeyDownMonitor)
+            self.localKeyDownMonitor = nil
+        }
+        if let localFlagsMonitor {
+            NSEvent.removeMonitor(localFlagsMonitor)
+            self.localFlagsMonitor = nil
+        }
+        isRecording = false
+        resetRecordedModifiers()
+    }
+}
+
+private struct SoftPillButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor).opacity(configuration.isPressed ? 0.65 : 0.95))
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.6)
+            )
+            .opacity(configuration.isPressed ? 0.75 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

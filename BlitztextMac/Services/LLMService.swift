@@ -107,6 +107,20 @@ enum LLMService {
         )
     }
 
+    static func applyAppContext(
+        text: String,
+        category: AppContextRule.Category,
+        style: AppContextRule.Style,
+        model: RewriteModel = .fastEdit
+    ) async throws -> String {
+        try await complete(
+            text: text,
+            systemPrompt: buildAppContextPrompt(category: category, style: style),
+            model: model,
+            temperature: 0.25
+        )
+    }
+
     private static func complete(
         text: String,
         systemPrompt: String,
@@ -154,6 +168,48 @@ enum LLMService {
 
     private static func openAIErrorMessage(from data: Data) -> String? {
         (try? JSONDecoder().decode(OpenAIErrorResponse.self, from: data))?.error?.message
+    }
+
+    private static func buildAppContextPrompt(category: AppContextRule.Category, style: AppContextRule.Style) -> String {
+        let categoryInstruction: String
+        switch category {
+        case .messages:
+            categoryInstruction = "Der Text ist für Chat oder Messenger bestimmt. Er soll natürlich, direkt und passend für kurze Kommunikation sein."
+        case .email:
+            categoryInstruction = "Der Text ist für E-Mail bestimmt. Er soll gut strukturiert, klar und höflich sein."
+        case .code:
+            categoryInstruction = "Der Text ist für Coding, Entwickler-Tools oder AI-Agenten bestimmt. Er soll präzise, technisch und anweisungsstark sein."
+        case .notes:
+            categoryInstruction = "Der Text ist für Notizen bestimmt. Er soll lesbar, strukturiert und gedankennah bleiben."
+        case .formal:
+            categoryInstruction = "Der Text ist für formelle Kommunikation bestimmt. Er soll professionell, respektvoll und präzise sein."
+        case .general:
+            categoryInstruction = "Der Text ist für allgemeine Nutzung bestimmt. Er soll klar und natürlich bleiben."
+        }
+
+        let styleInstruction: String
+        switch style {
+        case .natural:
+            styleInstruction = "Bewahre den natürlichen Ton weitgehend."
+        case .concise:
+            styleInstruction = "Formuliere knapp, klar und ohne Füllwörter."
+        case .polished:
+            styleInstruction = "Glätte Sprache, Grammatik und Lesefluss deutlich, ohne Bedeutung zu verändern."
+        case .formal:
+            styleInstruction = "Nutze einen formellen, professionellen Ton."
+        case .technical:
+            styleInstruction = "Nutze technische Präzision, klare Anforderungen und konkrete Begriffe."
+        case .casual:
+            styleInstruction = "Nutze einen lockeren, menschlichen und unkomplizierten Ton."
+        }
+
+        return """
+        Du erhältst ein gesprochenes Transkript, das bereits in Text umgewandelt wurde.
+        \(categoryInstruction)
+        \(styleInstruction)
+        Korrigiere offensichtliche Erkennungs-, Grammatik- und Zeichensetzungsfehler.
+        Erfinde keine neuen Fakten. Gib NUR den finalen Text zurück, keine Erklärung.
+        """
     }
 
     private static func buildEmojiSystemPrompt(density: EmojiTextSettings.EmojiDensity) -> String {

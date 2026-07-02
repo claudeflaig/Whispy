@@ -16,7 +16,7 @@ struct MenuBarView: View {
                 workflowPage
             }
         }
-        .frame(width: 340)
+        .frame(width: 380)
         .animation(.easeInOut(duration: 0.2), value: appState.page)
     }
 
@@ -24,61 +24,7 @@ struct MenuBarView: View {
 
     private var mainPage: some View {
         VStack(spacing: 0) {
-            // Header
-            VStack(spacing: 0) {
-                // Top bar
-                HStack {
-                    HStack(spacing: 6) {
-                        Text("Blitztext")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(.secondary)
-
-                        Text("macOS Preview")
-                            .font(.system(size: 9.5, weight: .medium))
-                            .foregroundStyle(.quaternary)
-                    }
-
-                    Spacer()
-
-                    Button {
-                        appState.page = .settings
-                    } label: {
-                        ZStack(alignment: .topTrailing) {
-                            Image(systemName: "gear")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(.tertiary)
-                                .frame(width: 28, height: 28)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(Color.primary.opacity(0.00001)) // hit target
-                                )
-                                .contentShape(Rectangle())
-
-                            if !appState.accessibilityPermissionGranted {
-                                Circle()
-                                    .fill(Color.orange)
-                                    .frame(width: 6, height: 6)
-                                    .offset(x: -4, y: 4)
-                            }
-                        }
-                    }
-                    .buttonStyle(SubtleButtonStyle())
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
-
-                // Status area
-                if appState.isConfigured {
-                    configuredHeader
-                } else {
-                    unconfiguredHeader
-                }
-            }
-            .padding(.bottom, 16)
-            .background(
-                Color(nsColor: .controlBackgroundColor).opacity(0.5)
-            )
+            premiumHeader
 
             if BlitztextInstallLocationService.shouldOfferMoveToApplications {
                 installHintBanner
@@ -98,15 +44,28 @@ struct MenuBarView: View {
                     .padding(.bottom, 6)
             }
 
-            // Workflow list
-            VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Workflows")
+                        .font(.system(size: 10.5, weight: .bold))
+                        .tracking(0.7)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("Sprechen statt tippen")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 10)
+
                 ForEach(WorkflowType.mainMenuCases) { type in
                     let enabled = appState.isWorkflowAvailable(type)
                     WorkflowRowView(
                         type: type,
                         enabled: enabled,
                         customName: appState.displayName(for: type),
-                        subtitle: appState.workflowSubtitle(for: type)
+                        subtitle: appState.workflowSubtitle(for: type),
+                        hotkeyLabel: appState.hotkeyLabel(for: type)
                     ) {
                         appState.startWorkflow(type)
                     }
@@ -116,100 +75,226 @@ struct MenuBarView: View {
 
             appFooter
         }
+        .background(menuBackground)
+    }
+
+    private var menuBackground: some View {
+        ZStack {
+            Color(nsColor: .windowBackgroundColor)
+            LinearGradient(
+                colors: [Color.blue.opacity(0.08), Color.green.opacity(0.06), Color.purple.opacity(0.045)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            RadialGradient(
+                colors: [Color.green.opacity(0.14), .clear],
+                center: .topTrailing,
+                startRadius: 10,
+                endRadius: 250
+            )
+        }
+    }
+
+    private var premiumHeader: some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.green.opacity(0.95), Color.blue.opacity(0.85)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .shadow(color: .green.opacity(0.22), radius: 14, y: 6)
+                    Image(systemName: "waveform.badge.microphone")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 42, height: 42)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text("Whispy")
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .foregroundStyle(.primary)
+                        Text("Preview")
+                            .font(.system(size: 9, weight: .bold))
+                            .tracking(0.5)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(Capsule(style: .continuous).fill(Color.primary.opacity(0.06)))
+                    }
+                    Text("Lokale und OpenAI-Diktate in jedem Textfeld.")
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Button {
+                    appState.openSettings()
+                } label: {
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.primary.opacity(0.72))
+                            .frame(width: 34, height: 34)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(.ultraThinMaterial)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .strokeBorder(Color.white.opacity(0.22), lineWidth: 0.6)
+                            )
+
+                        if !appState.accessibilityPermissionGranted {
+                            Circle()
+                                .fill(Color.orange)
+                                .frame(width: 7, height: 7)
+                                .offset(x: -3, y: 3)
+                        }
+                    }
+                }
+                .buttonStyle(SubtleButtonStyle())
+            }
+
+            if appState.isConfigured {
+                configuredHeader
+            } else {
+                unconfiguredHeader
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 16)
+        .padding(.bottom, 16)
+        .background(
+            ZStack {
+                LinearGradient(
+                    colors: [Color.white.opacity(0.18), Color.white.opacity(0.03)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .blendMode(.plusLighter)
+                Rectangle().fill(.thinMaterial)
+            }
+        )
     }
 
     private var transcriptionModePanel: some View {
         let modelOptions = LocalTranscriptionService.modelOptions()
         let selectedModelInstalled = appState.selectedLocalModelIsInstalled
 
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                Image(systemName: appState.appSettings.secureLocalModeEnabled ? "lock.shield.fill" : "network")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(appState.appSettings.secureLocalModeEnabled ? .green : .blue)
-                    .frame(width: 22, height: 22)
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(Color.green.opacity(0.13))
+                    Image(systemName: "arrow.triangle.branch")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.green)
+                }
+                .frame(width: 32, height: 32)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(appState.appSettings.secureLocalModeEnabled ? "Sicherer lokaler Modus" : "Online Whisper")
-                        .font(.system(size: 11.5, weight: .semibold))
-                        .foregroundStyle(.primary)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text("Transkription")
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .foregroundStyle(.primary)
 
-                    Text(modePanelSubtitle(selectedModelInstalled: selectedModelInstalled))
+                        Text("LOKAL + OPENAI")
+                            .font(.system(size: 8.5, weight: .bold))
+                            .tracking(0.35)
+                            .foregroundStyle(.green)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(Color.green.opacity(0.12))
+                            )
+                    }
+
+                    Text("Du kannst lokale und serverbasierte Kürzel parallel verwenden.")
                         .font(.system(size: 10.5))
                         .foregroundStyle(.secondary)
-                        .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer(minLength: 4)
+            }
 
-                Toggle("", isOn: Binding(
-                    get: { appState.appSettings.secureLocalModeEnabled },
-                    set: { newValue in
-                        if newValue {
-                            appState.enableSecureLocalMode()
-                        } else {
-                            appState.appSettings.secureLocalModeEnabled = false
-                        }
+            VStack(alignment: .leading, spacing: 6) {
+                modeFactRow(label: "Lokal", value: selectedModelInstalled ? appState.selectedLocalModelDisplayName : "Modell fehlt", color: selectedModelInstalled ? .green : .orange)
+                modeFactRow(label: "OpenAI", value: "Whisper API", color: .blue)
+                modeFactRow(label: "Kürzel", value: "Pro Workflow getrennt", color: .secondary)
+            }
+
+            HStack(spacing: 8) {
+                Text("Lokales Modell")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+
+                Picker("", selection: Binding(
+                    get: { appState.selectedLocalModelName },
+                    set: { appState.appSettings.selectedLocalTranscriptionModelName = $0 }
+                )) {
+                    ForEach(modelOptions) { model in
+                        Text(model.shortDisplayName).tag(model.id)
                     }
-                ))
+                }
                 .labelsHidden()
-                .toggleStyle(.switch)
+                .frame(maxWidth: .infinity)
                 .controlSize(.small)
                 .disabled(appState.isDownloadingLocalModel)
             }
 
-            if appState.appSettings.secureLocalModeEnabled {
-                HStack(spacing: 8) {
-                    Text("Modell")
-                        .font(.system(size: 10.5, weight: .medium))
-                        .foregroundStyle(.secondary)
-
-                    Picker("", selection: Binding(
-                        get: { appState.selectedLocalModelName },
-                        set: { appState.appSettings.selectedLocalTranscriptionModelName = $0 }
-                    )) {
-                        ForEach(modelOptions) { model in
-                            Text(model.shortDisplayName).tag(model.id)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(maxWidth: .infinity)
-                    .controlSize(.small)
-                    .disabled(appState.isDownloadingLocalModel)
-                }
-
-                if let progress = appState.localModelDownloadProgress {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ProgressView(value: progress)
-                        Text(appState.localModelDownloadStatusText ?? "Modell wird geladen...")
-                            .font(.system(size: 10.5))
-                            .foregroundStyle(.secondary)
-                    }
-                } else if !selectedModelInstalled {
-                    Button(appState.localModelDownloadButtonTitle) {
-                        appState.installSelectedLocalModel()
-                    }
-                    .controlSize(.small)
-                }
-
-                if let errorText = appState.localModelDownloadErrorText {
-                    Text(errorText)
+            if let progress = appState.localModelDownloadProgress {
+                VStack(alignment: .leading, spacing: 4) {
+                    ProgressView(value: progress)
+                    Text(appState.localModelDownloadStatusText ?? "Modell wird geladen...")
                         .font(.system(size: 10.5))
-                        .foregroundStyle(.red)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .foregroundStyle(.secondary)
                 }
+            } else if !selectedModelInstalled {
+                Button(appState.localModelDownloadButtonTitle) {
+                    appState.installSelectedLocalModel()
+                }
+                .controlSize(.small)
+            }
+
+            if let errorText = appState.localModelDownloadErrorText {
+                Text(errorText)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(10)
+        .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.primary.opacity(0.035))
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.82))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .strokeBorder(Color.green.opacity(0.18), lineWidth: 0.8)
         )
+    }
+
+    private func modeFactRow(label: String, value: String, color: Color) -> some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.tertiary)
+                .frame(width: 70, alignment: .leading)
+            Text(value)
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(color)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
     }
 
     private func modePanelSubtitle(selectedModelInstalled: Bool) -> String {
@@ -223,7 +308,7 @@ struct MenuBarView: View {
             return "\(appState.selectedLocalModelDisplayName) ist noch nicht installiert."
         }
 
-        return "Blitztext nutzt gerade die OpenAI-Transkription."
+        return "Whispy nutzt gerade die OpenAI-Transkription."
     }
 
     private var accessibilityHintBanner: some View {
@@ -264,14 +349,46 @@ struct MenuBarView: View {
     }
 
     private var configuredHeader: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(.green)
-                .frame(width: 7, height: 7)
-            Text("Bereit")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.primary)
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.green.opacity(0.16))
+                    .frame(width: 34, height: 34)
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 10, height: 10)
+                    .shadow(color: .green.opacity(0.55), radius: 8)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Bereit für Diktat")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+                Text("fn lokal · fn + Shift OpenAI")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Text("LIVE")
+                .font(.system(size: 9, weight: .black))
+                .tracking(0.7)
+                .foregroundStyle(.green)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(Capsule(style: .continuous).fill(Color.green.opacity(0.12)))
         }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.ultraThinMaterial)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.20), lineWidth: 0.7)
+        )
+        .shadow(color: .black.opacity(0.06), radius: 14, y: 8)
     }
 
     private var installHintBanner: some View {
@@ -295,7 +412,7 @@ struct MenuBarView: View {
             Spacer(minLength: 0)
 
             Button("Prüfen") {
-                appState.page = .settings
+                appState.openSettings()
             }
             .font(.system(size: 10.5, weight: .medium))
             .buttonStyle(SubtleButtonStyle())
@@ -314,7 +431,7 @@ struct MenuBarView: View {
     private var onboardingPage: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Willkommen bei Blitztext")
+                Text("Willkommen bei Whispy")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.primary)
 
@@ -365,12 +482,12 @@ struct MenuBarView: View {
 
                     onboardingStep(number: "1", title: "OpenAI Key speichern", detail: "Öffne die Einstellungen und trage deinen eigenen OpenAI API Key ein.")
                     onboardingStep(number: "2", title: "Berechtigungen erlauben", detail: "Mikrofon und Bedienungshilfen für das Einfügen freigeben.")
-                    onboardingStep(number: "3", title: "Workflow wählen", detail: "Blitztext oder einen der Verbesserer-Workflows direkt aus der Menüleiste starten.")
+                    onboardingStep(number: "3", title: "Workflow wählen", detail: "Whispy oder einen der Verbesserer-Workflows direkt aus der Menüleiste starten.")
                 }
 
                 HStack(spacing: 8) {
                     Button {
-                        appState.page = .settings
+                        appState.openSettings()
                     } label: {
                         Text("Jetzt einrichten")
                             .font(.system(size: 12, weight: .medium))
@@ -429,7 +546,7 @@ struct MenuBarView: View {
             }
 
             Button {
-                appState.page = .settings
+                appState.openSettings()
             } label: {
                 Text("Einstellungen \u{00F6}ffnen")
                     .font(.system(size: 12, weight: .medium))
@@ -480,7 +597,7 @@ struct MenuBarView: View {
                 .frame(width: 18, height: 18)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Lege Blitztext zuerst nach /Applications.")
+                Text("Lege Whispy zuerst nach /Applications.")
                     .font(.system(size: 11.5, weight: .semibold))
                     .foregroundStyle(.primary)
 
@@ -506,30 +623,33 @@ struct MenuBarView: View {
     private var settingsPage: some View {
         VStack(spacing: 0) {
             // Header bar
-            HStack {
+            HStack(spacing: 12) {
                 Button {
                     appState.page = .main
                 } label: {
-                    HStack(spacing: 3) {
+                    HStack(spacing: 4) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 10, weight: .semibold))
                         Text("Zur\u{00FC}ck")
                             .font(.system(size: 12))
+                            .fixedSize()
                     }
                     .foregroundStyle(.secondary)
                 }
                 .buttonStyle(SubtleButtonStyle())
-
-                Spacer()
+                .frame(width: 120, alignment: .leading)
 
                 Text("Einstellungen")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .lineLimit(1)
+                    .fixedSize()
+                    .frame(maxWidth: .infinity, alignment: .center)
 
-                Spacer()
                 settingsQuickAction
+                    .frame(width: 190, alignment: .trailing)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
 
             Divider()
 
@@ -541,24 +661,39 @@ struct MenuBarView: View {
         }
     }
 
-    @ViewBuilder
     private var settingsQuickAction: some View {
-        if !appState.accessibilityPermissionGranted {
+        HStack(spacing: 10) {
+            if !appState.accessibilityPermissionGranted {
+                Button {
+                    appState.requestAccessibilityPermission()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "hand.raised")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("Rechte")
+                            .font(.system(size: 12))
+                            .fixedSize()
+                    }
+                    .foregroundStyle(.orange)
+                }
+                .buttonStyle(SubtleButtonStyle())
+            }
+
             Button {
-                appState.requestAccessibilityPermission()
+                NSApplication.shared.terminate(nil)
             } label: {
                 HStack(spacing: 4) {
-                    Image(systemName: "hand.raised")
+                    Image(systemName: "power")
                         .font(.system(size: 10, weight: .semibold))
-                    Text("Rechte")
+                    Text("Beenden")
                         .font(.system(size: 12))
+                        .fixedSize()
                 }
-                .foregroundStyle(.orange)
+                .foregroundStyle(.secondary)
             }
             .buttonStyle(SubtleButtonStyle())
-        } else {
-            Color.clear.frame(width: 58, height: 18)
         }
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     // MARK: - Workflow Page

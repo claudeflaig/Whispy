@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct BlitztextMacApp: App {
+struct WhispyMacApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
@@ -15,6 +15,7 @@ struct BlitztextMacApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
+    private var settingsWindow: NSWindow?
     private let menuBarStatusController = MenuBarStatusController()
     let appState = AppState()
 
@@ -28,7 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         popover = NSPopover()
-        popover.contentSize = NSSize(width: 340, height: 480)
+        popover.contentSize = NSSize(width: 640, height: 720)
         popover.behavior = .transient
         popover.delegate = self
         popover.contentViewController = NSHostingController(rootView: MenuBarView(appState: appState))
@@ -51,6 +52,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             name: .dismissPopover,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleOpenSettingsWindow),
+            name: .openSettingsWindow,
+            object: nil
+        )
 
         DispatchQueue.main.async { [weak self] in
             self?.showOnboardingIfNeeded()
@@ -60,6 +67,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     @objc private func handleDismissPopover() {
         appState.isPopoverShown = false
         popover.performClose(nil)
+    }
+
+    @objc private func handleOpenSettingsWindow() {
+        appState.isPopoverShown = false
+        popover.performClose(nil)
+
+        if let settingsWindow {
+            settingsWindow.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let hostingController = NSHostingController(rootView: SettingsContentView(appState: appState))
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 760, height: 820),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Whispy Einstellungen"
+        window.contentViewController = hostingController
+        window.setContentSize(NSSize(width: 760, height: 820))
+        window.minSize = NSSize(width: 720, height: 700)
+        window.center()
+        window.isReleasedWhenClosed = false
+        settingsWindow = window
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func handleHotkeyEvent(_ event: HotkeyEvent) {

@@ -38,6 +38,7 @@ final class AppState {
     // Persisted settings
     var appSettings: AppSettings {
         didSet {
+            hotkeyService.configure(hotkeyCombos: appSettings.hotkeyCombos)
             saveSettings()
             prewarmLocalTranscriptionIfNeeded()
         }
@@ -54,9 +55,14 @@ final class AppState {
     var emojiTextSettings: EmojiTextSettings {
         didSet { saveSettings() }
     }
+    var dictationHistory: [DictationHistoryEntry] {
+        didSet { saveSettings() }
+    }
 
     // Hotkeys
     let hotkeyService = HotkeyService()
+    private let recordingMarkerOverlay = RecordingMarkerOverlay()
+    private let livePreviewOverlay = LivePreviewOverlay()
 
     // Computed
     var isConfigured: Bool {
@@ -76,12 +82,18 @@ final class AppState {
         self.textImprovementSettings = Self.loadTextImprovementSettings()
         self.dampfAblassenSettings = Self.loadDampfAblassenSettings()
         self.emojiTextSettings = Self.loadEmojiTextSettings()
+        self.dictationHistory = Self.loadDictationHistory()
+        hotkeyService.configure(hotkeyCombos: appSettings.hotkeyCombos)
         refreshAccessibilityPermission()
         autoSelectFastLocalModelIfNeeded()
         prewarmLocalTranscriptionIfNeeded()
     }
 
     // MARK: - Custom Display Names
+
+    func hotkeyLabel(for type: WorkflowType) -> String {
+        (appSettings.hotkeyCombos[type] ?? type.defaultHotkeyCombo).displayLabel
+    }
 
     func displayName(for type: WorkflowType) -> String {
         switch type {
@@ -102,19 +114,13 @@ final class AppState {
     func workflowSubtitle(for type: WorkflowType) -> String {
         switch type {
         case .transcription:
-            if appSettings.secureLocalModeEnabled {
-                let modelName = selectedLocalModelName
-                return LocalTranscriptionService.isModelInstalled(modelName)
-                    ? "Lokal: \(LocalTranscriptionModel.displayName(for: modelName))."
-                    : "Lokales WhisperKit-Modell fehlt."
-            }
-            return "Online: Whisper über OpenAI."
+            return "OpenAI Whisper. Serverbasiert."
         case .localTranscription:
-            return "Nur lokal. Kein Server."
+            let modelName = selectedLocalModelName
+            return LocalTranscriptionService.isModelInstalled(modelName)
+                ? "Lokal: \(LocalTranscriptionModel.displayName(for: modelName))."
+                : "Lokales WhisperKit-Modell fehlt."
         case .textImprover, .dampfAblassen, .emojiText:
-            if appSettings.secureLocalModeEnabled {
-                return "Im lokalen Modus pausiert."
-            }
             return type.subtitle
         }
     }
@@ -150,7 +156,7 @@ final class AppState {
     func startWorkflow(_ type: WorkflowType, source: WorkflowLaunchSource = .manual) {
         guard isWorkflowAvailable(type) else {
             if source == .manual {
-                page = .settings
+                openSettings()
             }
             return
         }
@@ -166,7 +172,7 @@ final class AppState {
             let workflow = TranscriptionWorkflow(
                 customTerms: textImprovementSettings.customTerms,
                 language: transcriptionSettings.language,
-                backend: appSettings.secureLocalModeEnabled ? .local : .remote,
+                backend: .remote,
                 localModelName: selectedLocalModelName
             )
             configureWorkflowHandlers(workflow)
@@ -223,11 +229,9 @@ final class AppState {
         case .localTranscription:
             return selectedLocalModelIsInstalled
         case .transcription:
-            return appSettings.secureLocalModeEnabled
-                ? selectedLocalModelIsInstalled
-                : KeychainService.isConfigured
+            return KeychainService.isConfigured
         case .textImprover, .dampfAblassen, .emojiText:
-            return !appSettings.secureLocalModeEnabled && KeychainService.isConfigured
+            return KeychainService.isConfigured
         }
     }
 
@@ -236,6 +240,7 @@ final class AppState {
     }
 
     func resetCurrentWorkflow() {
+        recordingMarkerOverlay.hide()
         activeWorkflow?.reset()
         activeWorkflow = nil
         activePasteTarget = nil
@@ -291,6 +296,23 @@ final class AppState {
 
     func copyToClipboard(_ text: String) {
         writeSensitiveTextToPasteboard(text)
+    }
+
+    func pasteHistoryEntry(_ entry: DictationHistoryEntry) {
+        pasteAtCursor(entry.finalText, target: lastPopoverPasteTarget ?? activePasteTarget ?? captureCurrentFrontmostApp())
+    }
+
+    func clearDictationHistory() {
+        dictationHistory.removeAll()
+    }
+
+    func contextRule(for bundleIdentifier: String?) -> AppContextRule {
+        guard let bundleIdentifier else {
+            return appSettings.appContextRules.first { $0.category == .general } ?? AppContextRule.defaults.last!
+        }
+        return appSettings.appContextRules.first { rule in
+            rule.bundleIdentifiers.contains { $0.caseInsensitiveCompare(bundleIdentifier) == .orderedSame }
+        } ?? appSettings.appContextRules.first { $0.category == .general } ?? AppContextRule.defaults.last!
     }
 
     // MARK: - Auto-Paste
@@ -375,7 +397,8 @@ final class AppState {
             transcription: transcriptionSettings,
             textImprovement: textImprovementSettings,
             dampfAblassen: dampfAblassenSettings,
-            emojiText: emojiTextSettings
+            emojiText: emojiTextSettings,
+            history: dictationHistory
         )
         if let data = try? JSONEncoder().encode(container) {
             try? data.write(to: Self.settingsURL)
@@ -402,6 +425,10 @@ final class AppState {
         loadContainer()?.emojiText ?? EmojiTextSettings()
     }
 
+    private static func loadDictationHistory() -> [DictationHistoryEntry] {
+        Array((loadContainer()?.history ?? []).prefix(20))
+    }
+
     private static func loadContainer() -> SettingsContainer? {
         guard let data = try? Data(contentsOf: settingsURL) else { return nil }
         return try? JSONDecoder().decode(SettingsContainer.self, from: data)
@@ -409,6 +436,10 @@ final class AppState {
 
     func refreshAccessibilityPermission() {
         accessibilityPermissionGranted = AccessibilityPermissionService.currentStatus()
+    }
+
+    func openSettings() {
+        NotificationCenter.default.post(name: .openSettingsWindow, object: nil)
     }
 
     func requestAccessibilityPermission() {
@@ -448,11 +479,62 @@ final class AppState {
     }
 
     private func handleWorkflowOutput(_ text: String) {
-        pasteAtCursor(text, target: activePasteTarget)
-        if activeLaunchSource == .hotkeyBackground {
+        let target = activePasteTarget
+        let workflowType = activeWorkflow?.type ?? .transcription
+        let launchSource = activeLaunchSource
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.processAndPasteWorkflowOutput(
+                text,
+                workflowType: workflowType,
+                target: target,
+                launchSource: launchSource
+            )
+        }
+    }
+
+    private func processAndPasteWorkflowOutput(
+        _ text: String,
+        workflowType: WorkflowType,
+        target: PasteTarget?,
+        launchSource: WorkflowLaunchSource
+    ) async {
+        let rule = contextRule(for: target?.bundleIdentifier)
+        let shouldApplyContext = workflowType != .localTranscription
+            && KeychainService.isConfigured
+            && !(rule.category == .general && rule.style == .natural)
+
+        let finalText: String
+        if shouldApplyContext {
+            menuBarStatus = .processing(workflowType)
+            finalText = (try? await LLMService.applyAppContext(
+                text: text,
+                category: rule.category,
+                style: rule.style
+            )) ?? text
+        } else {
+            finalText = text
+        }
+
+        let entry = DictationHistoryEntry(
+            workflowType: workflowType,
+            workflowName: displayName(for: workflowType),
+            bundleIdentifier: target?.bundleIdentifier,
+            appName: target?.application.localizedName,
+            contextCategory: rule.category,
+            style: rule.style,
+            originalText: text,
+            finalText: finalText
+        )
+        dictationHistory.insert(entry, at: 0)
+        dictationHistory = Array(dictationHistory.prefix(20))
+        livePreviewOverlay.show(text: finalText, subtitle: "\(rule.category.displayName) · \(rule.style.displayName)")
+        pasteAtCursor(finalText, target: target)
+        if launchSource == .hotkeyBackground {
             page = .main
         }
-        scheduleWorkflowCleanup(after: 1.05)
+        scheduleWorkflowCleanup(after: 1.15)
     }
 
     private func configureWorkflowHandlers<T: Workflow>(_ workflow: T) {
@@ -475,14 +557,23 @@ final class AppState {
             }
 
         case .running:
+            if workflow.isRecording {
+                recordingMarkerOverlay.show { [weak workflow] in
+                    workflow?.audioLevel ?? 0
+                }
+            } else {
+                recordingMarkerOverlay.hide()
+            }
             menuBarStatus = workflow.isRecording
                 ? .recording(workflow.type)
                 : .processing(workflow.type)
 
         case .done:
+            recordingMarkerOverlay.hide()
             menuBarStatus = .success(workflow.type)
 
         case .error:
+            recordingMarkerOverlay.hide()
             menuBarStatus = .error(workflow.type)
             if activeLaunchSource == .hotkeyBackground {
                 activeWorkflow = nil
@@ -504,6 +595,8 @@ final class AppState {
             guard let self, let activeWorkflow = self.activeWorkflow else { return }
             guard ObjectIdentifier(activeWorkflow) == workflowID else { return }
 
+            self.recordingMarkerOverlay.hide()
+            self.livePreviewOverlay.hide()
             activeWorkflow.reset()
             self.activeWorkflow = nil
             self.activePasteTarget = nil
@@ -603,12 +696,14 @@ private struct SettingsContainer: Codable {
     var textImprovement: TextImprovementSettings
     var dampfAblassen: DampfAblassenSettings?
     var emojiText: EmojiTextSettings?
+    var history: [DictationHistoryEntry]?
 }
 
 // MARK: - Notification for Popover Dismissal
 
 extension Notification.Name {
     static let dismissPopover = Notification.Name("dismissPopover")
+    static let openSettingsWindow = Notification.Name("openSettingsWindow")
 }
 
 private struct PasteTarget {

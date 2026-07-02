@@ -37,7 +37,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.blitztext.mac
-        PRODUCT_NAME: Blitztext
+        PRODUCT_NAME: Whispy
         INFOPLIST_FILE: Resources/Info.plist
         INFOPLIST_KEY_CFBundleShortVersionString: $(MARKETING_VERSION)
         INFOPLIST_KEY_CFBundleVersion: $(CURRENT_PROJECT_VERSION)

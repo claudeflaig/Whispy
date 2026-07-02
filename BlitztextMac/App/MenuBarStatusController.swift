@@ -71,7 +71,7 @@ final class MenuBarStatusController {
     private func tooltip(for status: MenuBarStatus) -> String {
         switch status {
         case .idle:
-            return "Blitztext ist bereit"
+            return "Whispy ist bereit"
         case .recording(let type):
             return "\(type.displayName): Aufnahme läuft"
         case .processing(let type):
@@ -80,12 +80,12 @@ final class MenuBarStatusController {
             if let type {
                 return "\(type.displayName): Fertig"
             }
-            return "Blitztext: Fertig"
+            return "Whispy: Fertig"
         case .error(let type):
             if let type {
                 return "\(type.displayName): Fehler"
             }
-            return "Blitztext: Fehler"
+            return "Whispy: Fehler"
         }
     }
 
@@ -142,21 +142,27 @@ private enum MenuBarStatusIconRenderer {
     }
 
     private static func drawBaseIcon(in bounds: CGRect, status: MenuBarStatus, frame: Int) {
-        let stripeWidths: [CGFloat] = [12, 10, 8, 6]
-        let stripeHeight: CGFloat = 2
-        let stripeSpacing: CGFloat = 1.6
-        let totalHeight = (CGFloat(stripeWidths.count) * stripeHeight) + (CGFloat(stripeWidths.count - 1) * stripeSpacing)
-        let originY = bounds.midY - (totalHeight / 2)
-        let baseAlpha = baseAlphaValues(for: status, frame: frame)
-
-        for (index, width) in stripeWidths.enumerated() {
-            let x = bounds.midX - (width / 2)
-            let y = originY + CGFloat(index) * (stripeHeight + stripeSpacing)
-            let rect = CGRect(x: x, y: y, width: width, height: stripeHeight)
-            let path = NSBezierPath(roundedRect: rect, xRadius: 1, yRadius: 1)
-            NSColor.black.withAlphaComponent(baseAlpha[index]).setFill()
-            path.fill()
+        guard let symbol = NSImage(
+            systemSymbolName: "waveform.badge.microphone",
+            accessibilityDescription: "Whispy"
+        ) else {
+            return
         }
+
+        let config = NSImage.SymbolConfiguration(pointSize: 16.5, weight: .semibold)
+        let configuredSymbol = symbol.withSymbolConfiguration(config) ?? symbol
+        configuredSymbol.isTemplate = true
+
+        let alpha = baseOpacity(for: status, frame: frame)
+        let iconRect = bounds.insetBy(dx: 0.8, dy: 0.8)
+        configuredSymbol.draw(
+            in: iconRect,
+            from: .zero,
+            operation: .sourceOver,
+            fraction: alpha,
+            respectFlipped: true,
+            hints: nil
+        )
     }
 
     private static func drawActivityBadge(
@@ -267,18 +273,18 @@ private enum MenuBarStatusIconRenderer {
         dotPath.fill()
     }
 
-    private static func baseAlphaValues(for status: MenuBarStatus, frame: Int) -> [CGFloat] {
+    private static func baseOpacity(for status: MenuBarStatus, frame: Int) -> CGFloat {
         switch status {
         case .idle:
-            return [1.0, 0.82, 0.64, 0.46]
-        case .recording(let type):
-            return recordingAlphaValues(for: type, frame: frame)
-        case .processing(let type):
-            return processingAlphaValues(for: type, frame: frame)
+            return 1.0
+        case .recording:
+            return [0.82, 1.0, 0.9, 1.0][frame % 4]
+        case .processing:
+            return [0.62, 0.72, 0.86, 0.72][frame % 4]
         case .success:
-            return [1.0, 0.9, 0.78, 0.62]
+            return 1.0
         case .error:
-            return [1.0, 0.7, 0.52, 0.36]
+            return 0.9
         }
     }
 
@@ -372,9 +378,17 @@ private enum MenuBarStatusIconRenderer {
     }
 
     private static func baseTemplateImage() -> NSImage? {
-        guard let image = NSImage(named: "menubar_icon") else { return nil }
-        image.isTemplate = true
-        image.size = NSSize(width: 18, height: 18)
-        return image
+        guard let image = NSImage(
+            systemSymbolName: "waveform.badge.microphone",
+            accessibilityDescription: "Whispy"
+        ) else {
+            return nil
+        }
+
+        let config = NSImage.SymbolConfiguration(pointSize: 16.5, weight: .semibold)
+        let configuredImage = image.withSymbolConfiguration(config) ?? image
+        configuredImage.isTemplate = true
+        configuredImage.size = NSSize(width: 18, height: 18)
+        return configuredImage
     }
 }
