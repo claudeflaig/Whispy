@@ -62,7 +62,6 @@ final class AppState {
     // Hotkeys
     let hotkeyService = HotkeyService()
     private let recordingMarkerOverlay = RecordingMarkerOverlay()
-    private let livePreviewOverlay = LivePreviewOverlay()
 
     // Computed
     var isConfigured: Bool {
@@ -322,6 +321,8 @@ final class AppState {
     private func pasteAtCursor(_ text: String, target: PasteTarget? = nil) {
         writeSensitiveTextToPasteboard(text)
 
+        let resolvedTarget = target ?? lastPopoverPasteTarget ?? captureCurrentFrontmostApp()
+
         if isPopoverShown {
             NotificationCenter.default.post(name: .dismissPopover, object: nil)
         }
@@ -334,7 +335,7 @@ final class AppState {
         }
 
         attemptPasteTrusted(
-            target: target,
+            target: resolvedTarget,
             attemptsRemaining: Self.pasteRetryInitialAttempts
         )
     }
@@ -529,7 +530,6 @@ final class AppState {
         )
         dictationHistory.insert(entry, at: 0)
         dictationHistory = Array(dictationHistory.prefix(20))
-        livePreviewOverlay.show(text: finalText, subtitle: "\(rule.category.displayName) · \(rule.style.displayName)")
         pasteAtCursor(finalText, target: target)
         if launchSource == .hotkeyBackground {
             page = .main
@@ -596,7 +596,6 @@ final class AppState {
             guard ObjectIdentifier(activeWorkflow) == workflowID else { return }
 
             self.recordingMarkerOverlay.hide()
-            self.livePreviewOverlay.hide()
             activeWorkflow.reset()
             self.activeWorkflow = nil
             self.activePasteTarget = nil
@@ -639,8 +638,9 @@ final class AppState {
                 return
             }
 
-            target.application.activate(options: [])
+            target.application.activate(options: [.activateIgnoringOtherApps])
         } else {
+            performPaste()
             return
         }
 
