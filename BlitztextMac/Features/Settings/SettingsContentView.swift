@@ -665,6 +665,7 @@ struct AccessSettingsView: View {
 struct CustomizeSettingsView: View {
     @Bindable var appState: AppState
     @State private var newTerm = ""
+    @State private var availableAppOptions: [AppContextAppOption] = AppContextAppOption.defaultOptions
 
     private var installedLocalModels: [LocalTranscriptionModel] {
         LocalTranscriptionService.installedModels()
@@ -748,13 +749,13 @@ struct CustomizeSettingsView: View {
             // MARK: App-Kontext
             SettingsCard(
                 title: "App-Kontext",
-                subtitle: "Whispy erkennt die Ziel-App und nutzt Kategorie und Stil als Kontext. Du kannst die Zuordnung manuell anpassen.",
+                subtitle: "Whispy erkennt die Ziel-App und nutzt Kategorie und Stil als Kontext. Wähle Apps aus einer Liste — keine Bundle-IDs nötig.",
                 systemImage: "app.connected.to.app.below.fill",
                 accent: .green
             ) {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(AppContextRule.Category.allCases) { category in
-                        AppContextRuleRow(rule: appContextRuleBinding(for: category))
+                        AppContextRuleRow(rule: appContextRuleBinding(for: category), availableApps: availableAppOptions)
                     }
                 }
             }
@@ -1034,6 +1035,9 @@ struct CustomizeSettingsView: View {
 
         }
         .padding(16)
+        .onAppear {
+            availableAppOptions = AppContextAppOption.availableOptions()
+        }
     }
 
     private func workflowAccentColor(_ type: WorkflowType) -> Color {
@@ -1106,38 +1110,91 @@ struct CustomizeSettingsView: View {
 }
 
 
+private struct AppContextAppOption: Identifiable, Hashable {
+    let name: String
+    let bundleIdentifier: String
+
+    var id: String { bundleIdentifier }
+
+    static let defaultOptions: [AppContextAppOption] = [
+        .init(name: "Mail", bundleIdentifier: "com.apple.mail"),
+        .init(name: "Nachrichten", bundleIdentifier: "com.apple.MobileSMS"),
+        .init(name: "Safari", bundleIdentifier: "com.apple.Safari"),
+        .init(name: "Notizen", bundleIdentifier: "com.apple.Notes"),
+        .init(name: "Pages", bundleIdentifier: "com.apple.iWork.Pages"),
+        .init(name: "Slack", bundleIdentifier: "com.tinyspeck.slackmacgap"),
+        .init(name: "WhatsApp", bundleIdentifier: "net.whatsapp.WhatsApp"),
+        .init(name: "Telegram", bundleIdentifier: "ru.keepcoder.Telegram"),
+        .init(name: "Microsoft Outlook", bundleIdentifier: "com.microsoft.Outlook"),
+        .init(name: "Microsoft Word", bundleIdentifier: "com.microsoft.Word"),
+        .init(name: "Visual Studio Code", bundleIdentifier: "com.microsoft.VSCode"),
+        .init(name: "Xcode", bundleIdentifier: "com.apple.dt.Xcode"),
+        .init(name: "Cursor", bundleIdentifier: "com.todesktop.230313mzl4w4u92"),
+        .init(name: "Craft", bundleIdentifier: "com.lukilabs.lukiapp"),
+        .init(name: "Arc", bundleIdentifier: "company.thebrowser.Browser")
+    ]
+
+    static func availableOptions() -> [AppContextAppOption] {
+        var options = defaultOptions
+        let applicationDirectories = [
+            "/Applications",
+            "/System/Applications",
+            NSHomeDirectory() + "/Applications"
+        ]
+
+        for directory in applicationDirectories {
+            guard let enumerator = FileManager.default.enumerator(
+                at: URL(fileURLWithPath: directory),
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles, .skipsPackageDescendants]
+            ) else { continue }
+
+            for case let url as URL in enumerator where url.pathExtension == "app" {
+                guard let bundle = Bundle(url: url), let identifier = bundle.bundleIdentifier else { continue }
+                let displayName = (bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
+                    ?? (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String)
+                    ?? url.deletingPathExtension().lastPathComponent
+                options.append(.init(name: displayName, bundleIdentifier: identifier))
+            }
+        }
+
+        return Array(Dictionary(grouping: options, by: \.bundleIdentifier).compactMap { $0.value.first })
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+}
+
 private struct AppContextRuleRow: View {
     @Binding var rule: AppContextRule
+    let availableApps: [AppContextAppOption]
 
-    private var appsText: Binding<String> {
-        Binding(
-            get: { rule.bundleIdentifiers.joined(separator: ", ") },
-            set: { newValue in
-                rule.bundleIdentifiers = newValue
-                    .split(separator: ",")
-                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .filter { !$0.isEmpty }
-            }
-        )
+    private var selectedApps: [AppContextAppOption] {
+        rule.bundleIdentifiers.map { identifier in
+            availableApps.first { $0.bundleIdentifier == identifier }
+                ?? AppContextAppOption(name: identifier, bundleIdentifier: identifier)
+        }
+    }
+
+    private var remainingApps: [AppContextAppOption] {
+        availableApps.filter { !rule.bundleIdentifiers.contains($0.bundleIdentifier) }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
                         .fill(Color.green.opacity(0.12))
                     Image(systemName: rule.category.icon)
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(.green)
                 }
-                .frame(width: 32, height: 32)
+                .frame(width: 34, height: 34)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(rule.category.displayName)
-                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
-                    Text("Bundle IDs kommagetrennt, z.B. com.apple.mail")
-                        .font(.system(size: 10))
+                        .font(.system(size: 12.8, weight: .bold, design: .rounded))
+                    Text("Wähle Apps aus der Liste und lege den Schreibstil fest.")
+                        .font(.system(size: 10.2, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
 
@@ -1153,18 +1210,82 @@ private struct AppContextRuleRow: View {
                 .controlSize(.small)
             }
 
-            TextField("Bundle IDs", text: appsText)
-                .textFieldStyle(.roundedBorder)
-                .font(.system(size: 10.5, design: .monospaced))
+            if selectedApps.isEmpty {
+                Text("Keine Apps zugeordnet.")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(.tertiary)
+                    .padding(.vertical, 2)
+            } else {
+                FlowLayout(spacing: 6) {
+                    ForEach(selectedApps) { app in
+                        HStack(spacing: 5) {
+                            Image(systemName: "app.fill")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.green)
+                            Text(app.name)
+                                .font(.system(size: 10.5, weight: .semibold))
+                                .lineLimit(1)
+                            Button {
+                                rule.bundleIdentifiers.removeAll { $0 == app.bundleIdentifier }
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 7.5, weight: .black))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(SubtleButtonStyle())
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(Color.green.opacity(0.09))
+                        )
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .strokeBorder(Color.green.opacity(0.14), lineWidth: 0.6)
+                        )
+                    }
+                }
+            }
+
+            HStack(spacing: 8) {
+                Menu {
+                    ForEach(remainingApps.prefix(80)) { app in
+                        Button(app.name) {
+                            rule.bundleIdentifiers.append(app.bundleIdentifier)
+                        }
+                    }
+                } label: {
+                    Label("App hinzufügen", systemImage: "plus.circle.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .menuStyle(.button)
+                .controlSize(.small)
+
+                if !rule.bundleIdentifiers.isEmpty {
+                    Button("Leeren") {
+                        rule.bundleIdentifiers.removeAll()
+                    }
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .buttonStyle(SubtleButtonStyle())
+                }
+
+                Spacer()
+
+                Text("\(rule.bundleIdentifiers.count) Apps")
+                    .font(.system(size: 9.5, weight: .bold))
+                    .foregroundStyle(.tertiary)
+            }
         }
-        .padding(11)
+        .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.primary.opacity(0.035))
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.primary.opacity(0.032))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.055), lineWidth: 0.6)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.7)
         )
     }
 }

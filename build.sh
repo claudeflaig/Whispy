@@ -106,6 +106,7 @@ fi
 
 # Bauen
 echo "🔨 Baue Whispy ..."
+export COPYFILE_DISABLE=1
 xcodebuild \
     -project BlitztextMac.xcodeproj \
     -scheme BlitztextMac \
@@ -114,6 +115,7 @@ xcodebuild \
     -derivedDataPath "$DERIVED_DATA_PATH" \
     ONLY_ACTIVE_ARCH=NO \
     ARCHS="$UNIVERSAL_ARCHS" \
+    CODE_SIGNING_ALLOWED=NO \
     clean build
 
 # App finden
@@ -124,6 +126,7 @@ if [ ! -d "$APP_PATH" ]; then
     exit 1
 fi
 
+xattr -cr "$APP_PATH" 2>/dev/null || true
 verify_universal_app "$APP_PATH"
 
 # Resources manuell ins Bundle kopieren (xcodegen kopiert sie nicht automatisch)
@@ -138,8 +141,9 @@ cp -f "$PROJECT_DIR/Resources/menubar_icon@2x.png" "$RESOURCES_DIR/" 2>/dev/null
 DEST="$SCRIPT_DIR/Whispy.app"
 rm -rf "$DEST"
 cp -R "$APP_PATH" "$DEST"
+xattr -cr "$DEST" 2>/dev/null || true
 echo "🔏 Signiere lokale Development-App ad-hoc. Dieses Artefakt ist nicht notarisiert."
-codesign --force --sign - "$DEST" 2>&1
+codesign --force --deep --sign - "$DEST" 2>&1
 verify_universal_app "$DEST"
 
 RUN_TARGET="$DEST"
@@ -154,8 +158,9 @@ if [ "$INSTALL_APP" = true ]; then
     fi
     rm -rf "$INSTALL_DEST"
     cp -R "$DEST" "$INSTALL_DEST"
+    xattr -cr "$INSTALL_DEST" 2>/dev/null || true
     echo "🔏 Signiere lokale Development-App ad-hoc. Dieses Artefakt ist nicht notarisiert."
-    codesign --force --sign - "$INSTALL_DEST" 2>&1
+    codesign --force --deep --sign - "$INSTALL_DEST" 2>&1
     verify_universal_app "$INSTALL_DEST"
     RUN_TARGET="$INSTALL_DEST"
 fi

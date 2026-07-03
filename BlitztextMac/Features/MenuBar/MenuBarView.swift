@@ -16,7 +16,7 @@ struct MenuBarView: View {
                 workflowPage
             }
         }
-        .frame(width: 380)
+        .frame(width: 420)
         .animation(.easeInOut(duration: 0.2), value: appState.page)
     }
 
@@ -26,56 +26,59 @@ struct MenuBarView: View {
         VStack(spacing: 0) {
             premiumHeader
 
-            if BlitztextInstallLocationService.shouldOfferMoveToApplications {
-                installHintBanner
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                    .padding(.bottom, 6)
-            }
-
-            transcriptionModePanel
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, appState.accessibilityPermissionGranted ? 6 : 4)
-
-            if !appState.accessibilityPermissionGranted {
-                accessibilityHintBanner
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 6)
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("Workflows")
-                        .font(.system(size: 10.5, weight: .bold))
-                        .tracking(0.7)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text("Sprechen statt tippen")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.tertiary)
-                }
-                .padding(.horizontal, 18)
-                .padding(.top, 10)
-
-                ForEach(WorkflowType.mainMenuCases) { type in
-                    let enabled = appState.isWorkflowAvailable(type)
-                    WorkflowRowView(
-                        type: type,
-                        enabled: enabled,
-                        customName: appState.displayName(for: type),
-                        subtitle: appState.workflowSubtitle(for: type),
-                        hotkeyLabel: appState.hotkeyLabel(for: type)
-                    ) {
-                        appState.startWorkflow(type)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 12) {
+                    if BlitztextInstallLocationService.shouldOfferMoveToApplications {
+                        installHintBanner
                     }
+
+                    transcriptionModePanel
+
+                    if !appState.accessibilityPermissionGranted {
+                        accessibilityHintBanner
+                    }
+
+                    workflowsPanel
+
+                    historyPanel
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
             }
-            .padding(.vertical, 2)
+            .frame(maxHeight: 640)
 
             appFooter
         }
         .background(menuBackground)
+    }
+
+    private var workflowsPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Workflows")
+                    .font(.system(size: 10.5, weight: .bold))
+                    .tracking(0.7)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("Sprechen statt tippen")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 2)
+
+            ForEach(WorkflowType.mainMenuCases) { type in
+                let enabled = appState.isWorkflowAvailable(type)
+                WorkflowRowView(
+                    type: type,
+                    enabled: enabled,
+                    customName: appState.displayName(for: type),
+                    subtitle: appState.workflowSubtitle(for: type),
+                    hotkeyLabel: appState.hotkeyLabel(for: type)
+                ) {
+                    appState.startWorkflow(type)
+                }
+            }
+        }
     }
 
     private var menuBackground: some View {
@@ -309,6 +312,75 @@ struct MenuBarView: View {
         }
 
         return "Whispy nutzt gerade die OpenAI-Transkription."
+    }
+
+    private var historyPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Label("Verlauf", systemImage: "clock.arrow.circlepath")
+                    .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+                Spacer()
+                Text("letzte 20")
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(0.4)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(Capsule(style: .continuous).fill(Color.primary.opacity(0.055)))
+            }
+
+            if appState.dictationHistory.isEmpty {
+                HStack(alignment: .top, spacing: 9) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.blue)
+                    Text("Deine letzten Diktate erscheinen hier direkt im Menübar-Popup — lokal gespeichert und sofort wiederverwendbar.")
+                        .font(.system(size: 10.8, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(11)
+                .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            } else {
+                ScrollView(showsIndicators: true) {
+                    LazyVStack(spacing: 7) {
+                        ForEach(appState.dictationHistory.prefix(20)) { entry in
+                            MenuHistoryEntryRow(entry: entry) {
+                                appState.copyToClipboard(entry.finalText)
+                            } pasteAction: {
+                                appState.pasteHistoryEntry(entry)
+                            }
+                        }
+                    }
+                    .padding(.trailing, 2)
+                }
+                .frame(maxHeight: 220)
+
+                HStack(spacing: 8) {
+                    Text("Nur lokal auf diesem Mac")
+                        .font(.system(size: 9.8, weight: .medium))
+                        .foregroundStyle(.tertiary)
+                    Spacer()
+                    Button("Löschen") {
+                        appState.clearDictationHistory()
+                    }
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .buttonStyle(SubtleButtonStyle())
+                }
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.ultraThinMaterial)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.18), lineWidth: 0.7)
+        )
+        .shadow(color: .black.opacity(0.045), radius: 14, y: 7)
     }
 
     private var accessibilityHintBanner: some View {
@@ -775,6 +847,96 @@ struct MenuBarView: View {
 
     private func workflowIconColor(_ type: WorkflowType) -> Color {
         switch type {
+        case .transcription: return .blue
+        case .localTranscription: return .green
+        case .textImprover: return .purple
+        case .dampfAblassen: return .orange
+        case .emojiText: return .cyan
+        }
+    }
+}
+
+// MARK: - Menu History Row
+
+private struct MenuHistoryEntryRow: View {
+    let entry: DictationHistoryEntry
+    let copyAction: () -> Void
+    let pasteAction: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(accent.opacity(0.12))
+                Image(systemName: entry.workflowType.icon)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(accent)
+            }
+            .frame(width: 30, height: 30)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 5) {
+                    Text(entry.workflowName)
+                        .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+
+                    Text(entry.contextCategory.displayName)
+                        .font(.system(size: 8, weight: .black))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Capsule(style: .continuous).fill(Color.primary.opacity(0.055)))
+
+                    if let appName = entry.appName {
+                        Text(appName)
+                            .font(.system(size: 9))
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
+                }
+
+                Text(entry.finalText)
+                    .font(.system(size: 10.4, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 4)
+
+            HStack(spacing: 4) {
+                Button(action: copyAction) {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .frame(width: 24, height: 24)
+                }
+                .help("Kopieren")
+                .buttonStyle(SubtleButtonStyle())
+
+                Button(action: pasteAction) {
+                    Image(systemName: "arrow.turn.down.left")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .frame(width: 24, height: 24)
+                }
+                .help("Einfügen")
+                .buttonStyle(SubtleButtonStyle())
+            }
+            .foregroundStyle(.secondary)
+        }
+        .padding(9)
+        .background(
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(Color.primary.opacity(0.035))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.6)
+        )
+    }
+
+    private var accent: Color {
+        switch entry.workflowType {
         case .transcription: return .blue
         case .localTranscription: return .green
         case .textImprover: return .purple
