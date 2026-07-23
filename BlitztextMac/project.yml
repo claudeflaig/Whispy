@@ -1,6 +1,6 @@
 name: BlitztextMac
 options:
-  bundleIdPrefix: app.blitztext
+  bundleIdPrefix: app.claudeflaig
   deploymentTarget:
     macOS: "14.0"
   xcodeVersion: "16.0"
@@ -36,7 +36,7 @@ targets:
           - BlitztextMac.entitlements
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.blitztext.mac
+        PRODUCT_BUNDLE_IDENTIFIER: app.claudeflaig.whispy
         PRODUCT_NAME: Whispy
         INFOPLIST_FILE: Resources/Info.plist
         INFOPLIST_KEY_CFBundleShortVersionString: $(MARKETING_VERSION)

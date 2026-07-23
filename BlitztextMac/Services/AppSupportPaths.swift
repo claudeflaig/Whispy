@@ -1,12 +1,20 @@
 import Foundation
 
 enum AppSupportPaths {
-    private static let bundleIdentifier = Bundle.main.bundleIdentifier ?? "app.blitztext.mac"
+    private static let bundleIdentifier = Bundle.main.bundleIdentifier ?? "app.claudeflaig.whispy"
+    private static let legacyAppSupportDirectoryName = "Blitztext"
+    private static let appSupportDirectoryName = "Whispy"
 
     static var appSupportDirectoryURL: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
             .first!
-            .appendingPathComponent("Blitztext", isDirectory: true)
+            .appendingPathComponent(appSupportDirectoryName, isDirectory: true)
+    }
+
+    private static var legacyAppSupportDirectoryURL: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+            .first!
+            .appendingPathComponent(legacyAppSupportDirectoryName, isDirectory: true)
     }
 
     static var settingsURL: URL {
@@ -49,7 +57,16 @@ enum AppSupportPaths {
     }
 
     static func ensureAppSupportDirectoryExists() throws {
-        try FileManager.default.createDirectory(
+        let fileManager = FileManager.default
+
+        // Preserve existing settings, history, and downloaded models from the former
+        // Blitztext identity while moving the visible support folder to Whispy.
+        if !fileManager.fileExists(atPath: appSupportDirectoryURL.path),
+           fileManager.fileExists(atPath: legacyAppSupportDirectoryURL.path) {
+            try fileManager.moveItem(at: legacyAppSupportDirectoryURL, to: appSupportDirectoryURL)
+        }
+
+        try fileManager.createDirectory(
             at: appSupportDirectoryURL,
             withIntermediateDirectories: true
         )
