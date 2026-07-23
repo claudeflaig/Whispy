@@ -137,32 +137,55 @@ struct MenuBarView: View {
 
                 Spacer()
 
-                Button {
-                    appState.openSettings()
-                } label: {
-                    ZStack(alignment: .topTrailing) {
-                        Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.primary.opacity(0.72))
-                            .frame(width: 34, height: 34)
+                HStack(spacing: 7) {
+                    Button {
+                        appState.openSettings()
+                    } label: {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "slider.horizontal.3")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.primary.opacity(0.72))
+                                .frame(width: 34, height: 34)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(.ultraThinMaterial)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .strokeBorder(Color.white.opacity(0.22), lineWidth: 0.6)
+                                )
+
+                            if !appState.accessibilityPermissionGranted {
+                                Circle()
+                                    .fill(Color.orange)
+                                    .frame(width: 7, height: 7)
+                                    .offset(x: -3, y: 3)
+                            }
+                        }
+                    }
+                    .help("Einstellungen")
+                    .buttonStyle(SubtleButtonStyle())
+
+                    Button {
+                        NSApplication.shared.terminate(nil)
+                    } label: {
+                        Label("Beenden", systemImage: "power")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.red.opacity(0.82))
+                            .padding(.horizontal, 10)
+                            .frame(height: 34)
                             .background(
                                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(.ultraThinMaterial)
+                                    .fill(Color.red.opacity(0.09))
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .strokeBorder(Color.white.opacity(0.22), lineWidth: 0.6)
+                                    .strokeBorder(Color.red.opacity(0.18), lineWidth: 0.7)
                             )
-
-                        if !appState.accessibilityPermissionGranted {
-                            Circle()
-                                .fill(Color.orange)
-                                .frame(width: 7, height: 7)
-                                .offset(x: -3, y: 3)
-                        }
                     }
+                    .help("Whispy beenden")
+                    .buttonStyle(SubtleButtonStyle())
                 }
-                .buttonStyle(SubtleButtonStyle())
             }
 
             if appState.isConfigured {
