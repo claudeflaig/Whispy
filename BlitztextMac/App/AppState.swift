@@ -40,7 +40,6 @@ final class AppState {
         didSet {
             hotkeyService.configure(hotkeyCombos: appSettings.hotkeyCombos)
             saveSettings()
-            prewarmLocalTranscriptionIfNeeded()
         }
     }
     var transcriptionSettings: TranscriptionSettings {
@@ -85,7 +84,6 @@ final class AppState {
         hotkeyService.configure(hotkeyCombos: appSettings.hotkeyCombos)
         refreshAccessibilityPermission()
         autoSelectFastLocalModelIfNeeded()
-        prewarmLocalTranscriptionIfNeeded()
     }
 
     // MARK: - Custom Display Names
@@ -465,18 +463,6 @@ final class AppState {
 
         appSettings.selectedLocalTranscriptionModelName = LocalTranscriptionService.recommendedFastModelName
         appSettings.hasAutoSelectedFastLocalModel = true
-    }
-
-    private func prewarmLocalTranscriptionIfNeeded() {
-        guard appSettings.secureLocalModeEnabled,
-              LocalTranscriptionService.isModelInstalled(resolvedLocalModelName) else {
-            return
-        }
-
-        let modelName = resolvedLocalModelName
-        Task.detached(priority: .utility) {
-            try? await LocalTranscriptionService.shared.prepare(modelName: modelName)
-        }
     }
 
     private func handleWorkflowOutput(_ text: String) {
