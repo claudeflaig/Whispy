@@ -84,17 +84,7 @@ struct MenuBarView: View {
     private var menuBackground: some View {
         ZStack {
             Color(nsColor: .windowBackgroundColor)
-            LinearGradient(
-                colors: [Color.blue.opacity(0.08), Color.green.opacity(0.06), Color.purple.opacity(0.045)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            RadialGradient(
-                colors: [Color.green.opacity(0.14), .clear],
-                center: .topTrailing,
-                startRadius: 10,
-                endRadius: 250
-            )
+            Color.primary.opacity(0.018)
         }
     }
 
@@ -102,18 +92,15 @@ struct MenuBarView: View {
         VStack(spacing: 14) {
             HStack(spacing: 12) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.green.opacity(0.95), Color.blue.opacity(0.85)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .fill(Color.primary.opacity(0.085))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                .strokeBorder(Color.primary.opacity(0.11), lineWidth: 0.7)
                         )
-                        .shadow(color: .green.opacity(0.22), radius: 14, y: 6)
                     Image(systemName: "waveform.badge.microphone")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Color.primary.opacity(0.86))
                 }
                 .frame(width: 42, height: 42)
 
@@ -170,17 +157,17 @@ struct MenuBarView: View {
                         NSApplication.shared.terminate(nil)
                     } label: {
                         Label("Beenden", systemImage: "power")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(.red.opacity(0.82))
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
                             .padding(.horizontal, 10)
                             .frame(height: 34)
                             .background(
                                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Color.red.opacity(0.09))
+                                    .fill(Color.primary.opacity(0.045))
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .strokeBorder(Color.red.opacity(0.18), lineWidth: 0.7)
+                                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.7)
                             )
                     }
                     .help("Whispy beenden")
@@ -197,17 +184,10 @@ struct MenuBarView: View {
         .padding(.horizontal, 18)
         .padding(.top, 16)
         .padding(.bottom, 16)
-        .background(
-            ZStack {
-                LinearGradient(
-                    colors: [Color.white.opacity(0.18), Color.white.opacity(0.03)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .blendMode(.plusLighter)
-                Rectangle().fill(.thinMaterial)
-            }
-        )
+        .background(Rectangle().fill(.ultraThinMaterial))
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.primary.opacity(0.07)).frame(height: 0.7)
+        }
     }
 
     private var transcriptionModePanel: some View {
@@ -218,10 +198,10 @@ struct MenuBarView: View {
             HStack(alignment: .top, spacing: 10) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(Color.green.opacity(0.13))
+                        .fill(Color.primary.opacity(0.065))
                     Image(systemName: "arrow.triangle.branch")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.green)
+                        .foregroundStyle(.secondary)
                 }
                 .frame(width: 32, height: 32)
 
@@ -234,12 +214,12 @@ struct MenuBarView: View {
                         Text("LOKAL + OPENAI")
                             .font(.system(size: 8.5, weight: .bold))
                             .tracking(0.35)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(.secondary)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
                             .background(
                                 Capsule(style: .continuous)
-                                    .fill(Color.green.opacity(0.12))
+                                    .fill(Color.primary.opacity(0.055))
                             )
                     }
 
@@ -253,8 +233,8 @@ struct MenuBarView: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                modeFactRow(label: "Lokal", value: appState.selectedLocalEngineDisplayName, color: .green)
-                modeFactRow(label: "OpenAI", value: "Whisper API", color: .blue)
+                modeFactRow(label: "Lokal", value: appState.selectedLocalEngineDisplayName, color: .primary)
+                modeFactRow(label: "OpenAI", value: "Whisper API", color: .primary)
                 modeFactRow(label: "Kürzel", value: "Pro Workflow getrennt", color: .secondary)
             }
 
@@ -277,7 +257,7 @@ struct MenuBarView: View {
                 HStack(alignment: .top, spacing: 7) {
                     Image(systemName: "apple.intelligence")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.green)
+                        .foregroundStyle(.secondary)
                     Text("Echtzeit-Text mit Apples SpeechTranscriber. Das Sprachmodell wird beim ersten Einsatz von macOS installiert.")
                         .font(.system(size: 10.2, weight: .medium))
                         .foregroundStyle(.secondary)
@@ -329,11 +309,11 @@ struct MenuBarView: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.82))
+                .fill(Color.primary.opacity(0.035))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .strokeBorder(Color.green.opacity(0.18), lineWidth: 0.8)
+                .strokeBorder(Color.primary.opacity(0.09), lineWidth: 0.7)
         )
     }
 
@@ -385,7 +365,7 @@ struct MenuBarView: View {
                 HStack(alignment: .top, spacing: 9) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(.secondary)
                     Text("Deine letzten Diktate erscheinen hier direkt im Menübar-Popup — lokal gespeichert und sofort wiederverwendbar.")
                         .font(.system(size: 10.8, weight: .medium))
                         .foregroundStyle(.secondary)
@@ -475,12 +455,11 @@ struct MenuBarView: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(Color.green.opacity(0.16))
+                    .fill(Color.primary.opacity(0.055))
                     .frame(width: 34, height: 34)
                 Circle()
                     .fill(Color.green)
-                    .frame(width: 10, height: 10)
-                    .shadow(color: .green.opacity(0.55), radius: 8)
+                    .frame(width: 8, height: 8)
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -497,10 +476,10 @@ struct MenuBarView: View {
             Text("LIVE")
                 .font(.system(size: 9, weight: .black))
                 .tracking(0.7)
-                .foregroundStyle(.green)
+                .foregroundStyle(.secondary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
-                .background(Capsule(style: .continuous).fill(Color.green.opacity(0.12)))
+                .background(Capsule(style: .continuous).fill(Color.primary.opacity(0.055)))
         }
         .padding(12)
         .background(
@@ -580,11 +559,11 @@ struct MenuBarView: View {
                 HStack(spacing: 12) {
                     ZStack {
                         Circle()
-                            .fill(Color.blue.opacity(0.1))
+                            .fill(Color.primary.opacity(0.055))
                             .frame(width: 42, height: 42)
                         Image(systemName: "sparkles")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(.secondary)
                     }
 
                     VStack(alignment: .leading, spacing: 3) {
@@ -896,15 +875,7 @@ struct MenuBarView: View {
         .padding(.vertical, 8)
     }
 
-    private func workflowIconColor(_ type: WorkflowType) -> Color {
-        switch type {
-        case .transcription: return .blue
-        case .localTranscription: return .green
-        case .textImprover: return .purple
-        case .dampfAblassen: return .orange
-        case .emojiText: return .cyan
-        }
-    }
+    private func workflowIconColor(_ type: WorkflowType) -> Color { .secondary }
 }
 
 // MARK: - Menu History Row
@@ -918,10 +889,10 @@ private struct MenuHistoryEntryRow: View {
         HStack(alignment: .top, spacing: 10) {
             ZStack {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(accent.opacity(0.12))
+                    .fill(Color.primary.opacity(0.06))
                 Image(systemName: entry.workflowType.icon)
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(accent)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
             }
             .frame(width: 30, height: 30)
 
@@ -986,15 +957,6 @@ private struct MenuHistoryEntryRow: View {
         )
     }
 
-    private var accent: Color {
-        switch entry.workflowType {
-        case .transcription: return .blue
-        case .localTranscription: return .green
-        case .textImprover: return .purple
-        case .dampfAblassen: return .orange
-        case .emojiText: return .cyan
-        }
-    }
 }
 
 // MARK: - Subtle Button Style

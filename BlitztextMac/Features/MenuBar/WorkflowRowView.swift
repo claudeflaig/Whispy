@@ -15,23 +15,16 @@ struct WorkflowRowView: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 13, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [accent.opacity(enabled ? 0.22 : 0.06), accent.opacity(enabled ? 0.08 : 0.03)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.primary.opacity(isHovered && enabled ? 0.10 : 0.065))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 13, style: .continuous)
-                                .strokeBorder(accent.opacity(enabled ? 0.24 : 0.06), lineWidth: 0.8)
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .strokeBorder(Color.primary.opacity(0.09), lineWidth: 0.7)
                         )
-                        .shadow(color: accent.opacity(isHovered && enabled ? 0.20 : 0.05), radius: isHovered ? 12 : 5, y: isHovered ? 5 : 2)
 
                     Image(systemName: type.icon)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(enabled ? accent : Color.secondary.opacity(0.45))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(enabled ? Color.primary.opacity(0.82) : Color.secondary.opacity(0.45))
                 }
                 .frame(width: 42, height: 42)
 
@@ -43,9 +36,9 @@ struct WorkflowRowView: View {
                             .lineLimit(1)
 
                         if type == .localTranscription {
-                            miniPill("LOKAL", color: .green)
+                            miniPill("LOKAL", color: .secondary)
                         } else if type == .transcription {
-                            miniPill("OPENAI", color: .blue)
+                            miniPill("OPENAI", color: .secondary)
                         }
                     }
 
@@ -76,8 +69,7 @@ struct WorkflowRowView: View {
                 RoundedRectangle(cornerRadius: 17, style: .continuous)
                     .strokeBorder(cardStroke, lineWidth: 0.8)
             )
-            .shadow(color: .black.opacity(isHovered && enabled ? 0.10 : 0.035), radius: isHovered ? 14 : 7, y: isHovered ? 7 : 3)
-            .scaleEffect(isHovered && enabled ? 1.012 : 1.0)
+            .shadow(color: .black.opacity(isHovered && enabled ? 0.08 : 0.02), radius: isHovered ? 8 : 3, y: isHovered ? 3 : 1)
             .padding(.horizontal, 12)
             .contentShape(Rectangle())
         }
@@ -100,15 +92,7 @@ struct WorkflowRowView: View {
             .background(Capsule(style: .continuous).fill(color.opacity(0.12)))
     }
 
-    private var accent: Color {
-        switch type {
-        case .localTranscription: return .green
-        case .transcription: return .blue
-        case .textImprover: return .purple
-        case .dampfAblassen: return .orange
-        case .emojiText: return .cyan
-        }
-    }
+    private var accent: Color { .secondary }
 
     private var cardFill: Color {
         if colorScheme == .dark {
@@ -159,23 +143,14 @@ struct HotkeyBadge: View {
     }
 
     private var keyBackground: some ShapeStyle {
-        LinearGradient(
-            colors: [
-                enabled ? accent.opacity(colorScheme == .dark ? 0.22 : 0.12) : Color.primary.opacity(0.035),
-                enabled ? Color.primary.opacity(colorScheme == .dark ? 0.08 : 0.045) : Color.primary.opacity(0.025)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        Color.primary.opacity(enabled ? (colorScheme == .dark ? 0.09 : 0.06) : 0.025)
     }
 
     private var keyStrokeColor: Color {
-        guard enabled else { return Color.primary.opacity(0.06) }
-        return accent.opacity(colorScheme == .dark ? 0.32 : 0.22)
+        Color.primary.opacity(enabled ? 0.14 : 0.06)
     }
 
     private var keyShadowColor: Color {
-        guard enabled else { return .clear }
-        return accent.opacity(colorScheme == .dark ? 0.10 : 0.08)
+        enabled ? Color.black.opacity(0.08) : .clear
     }
 }

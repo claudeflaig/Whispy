@@ -41,18 +41,15 @@ struct SettingsContentView: View {
     private var settingsHero: some View {
         HStack(alignment: .center, spacing: 16) {
             ZStack {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.green.opacity(0.95), Color.blue.opacity(0.86), Color.purple.opacity(0.70)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.primary.opacity(0.075))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(Color.primary.opacity(0.11), lineWidth: 0.8)
                     )
-                    .shadow(color: .green.opacity(0.22), radius: 20, y: 8)
                 Image(systemName: "waveform.badge.microphone")
-                    .font(.system(size: 26, weight: .black))
-                    .foregroundStyle(.white)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(Color.primary.opacity(0.86))
             }
             .frame(width: 58, height: 58)
 
@@ -75,16 +72,7 @@ struct SettingsContentView: View {
             }
         }
         .padding(22)
-        .background(
-            ZStack {
-                LinearGradient(
-                    colors: [Color.white.opacity(0.22), Color.white.opacity(0.06)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                Rectangle().fill(.thinMaterial)
-            }
-        )
+        .background(Rectangle().fill(.ultraThinMaterial))
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color.primary.opacity(0.06)).frame(height: 0.7)
         }
@@ -97,29 +85,25 @@ struct SettingsContentView: View {
                 .tracking(0.55)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.system(size: 13.5, weight: .black, design: .rounded))
-                .foregroundStyle(color)
+                .font(.system(size: 13.5, weight: .bold, design: .rounded))
+                .foregroundStyle(.primary)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
         .background(
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .fill(color.opacity(0.095))
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.primary.opacity(0.045))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .strokeBorder(color.opacity(0.16), lineWidth: 0.8)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.7)
         )
     }
 
     private var settingsBackground: some View {
         ZStack {
             Color(nsColor: .windowBackgroundColor)
-            LinearGradient(
-                colors: [Color.green.opacity(0.055), Color.blue.opacity(0.05), Color.purple.opacity(0.045)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            Color.primary.opacity(0.014)
         }
     }
 
@@ -158,17 +142,15 @@ private struct SettingsCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [accent.opacity(0.22), accent.opacity(0.08)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.primary.opacity(0.06))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.7)
                         )
                     Image(systemName: systemImage)
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(accent)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.secondary)
                 }
                 .frame(width: 38, height: 38)
 
@@ -193,14 +175,13 @@ private struct SettingsCard<Content: View>: View {
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(.thinMaterial)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.primary.opacity(0.025))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.20), lineWidth: 0.8)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.075), lineWidth: 0.7)
         )
-        .shadow(color: .black.opacity(0.065), radius: 18, y: 8)
     }
 }
 
@@ -269,10 +250,10 @@ struct AccessSettingsView: View {
                     SectionLabel(text: "OpenAI API Key")
                     Spacer()
                     if appState.hasValue(for: .openAIAPIKey) && !editingAPIKey {
-                        Button("Aendern") { editingAPIKey = true }
+                        Button("Ändern") { editingAPIKey = true }
                             .font(.system(size: 10, weight: .medium))
                             .buttonStyle(.plain)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -280,7 +261,7 @@ struct AccessSettingsView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "lock.fill")
                             .font(.system(size: 9))
-                            .foregroundStyle(.green.opacity(0.8))
+                            .foregroundStyle(.secondary)
                         Text(appState.apiKeyDisplayValue(for: .openAIAPIKey))
                             .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(.secondary)
@@ -498,7 +479,7 @@ struct AccessSettingsView: View {
                     } else {
                         Text("Speichern")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(.primary)
                     }
                 }
                 .buttonStyle(SubtleButtonStyle())
@@ -710,7 +691,7 @@ struct CustomizeSettingsView: View {
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: "apple.intelligence")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.green)
+                            .foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Apple Speech · Echtzeit")
                                 .font(.system(size: 11.5, weight: .semibold))
@@ -721,7 +702,7 @@ struct CustomizeSettingsView: View {
                         }
                     }
                     .padding(10)
-                    .background(Color.green.opacity(0.07), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                    .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 } else {
                     HStack(spacing: 6) {
                         Image(systemName: appState.selectedLocalModelIsInstalled ? "checkmark.circle.fill" : "arrow.down.circle.fill")
@@ -841,7 +822,7 @@ struct CustomizeSettingsView: View {
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: "arrow.triangle.branch")
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.green)
+                            .foregroundStyle(.secondary)
                             .frame(width: 18, height: 18)
                         Text("Du kannst lokal und OpenAI parallel verwenden. Weise z.B. \"Whispy Lokal\" fn zu und \"Whispy OpenAI\" fn + Shift.")
                             .font(.system(size: 10.5))
@@ -852,7 +833,7 @@ struct CustomizeSettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color.green.opacity(0.07))
+                            .fill(Color.primary.opacity(0.035))
                     )
 
                     ForEach(WorkflowType.userVisibleHotkeyCases) { type in
@@ -1060,7 +1041,7 @@ struct CustomizeSettingsView: View {
                     Button { addTerm() } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 16))
-                            .foregroundStyle(.blue.opacity(0.7))
+                            .foregroundStyle(.secondary)
                     }
                     .buttonStyle(SubtleButtonStyle())
                     .disabled(newTerm.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -1074,15 +1055,7 @@ struct CustomizeSettingsView: View {
         }
     }
 
-    private func workflowAccentColor(_ type: WorkflowType) -> Color {
-        switch type {
-        case .transcription: return .blue
-        case .localTranscription: return .green
-        case .textImprover: return .purple
-        case .dampfAblassen: return .orange
-        case .emojiText: return .cyan
-        }
-    }
+    private func workflowAccentColor(_ type: WorkflowType) -> Color { .secondary }
 
     private func appContextRuleBinding(for category: AppContextRule.Category) -> Binding<AppContextRule> {
         Binding(
@@ -1216,11 +1189,11 @@ private struct AppContextRuleRow: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .fill(Color.green.opacity(0.12))
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.primary.opacity(0.06))
                     Image(systemName: rule.category.icon)
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(.green)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.secondary)
                 }
                 .frame(width: 34, height: 34)
 
@@ -1255,7 +1228,7 @@ private struct AppContextRuleRow: View {
                         HStack(spacing: 5) {
                             Image(systemName: "app.fill")
                                 .font(.system(size: 9, weight: .semibold))
-                                .foregroundStyle(.green)
+                                .foregroundStyle(.secondary)
                             Text(app.name)
                                 .font(.system(size: 10.5, weight: .semibold))
                                 .lineLimit(1)
@@ -1272,11 +1245,11 @@ private struct AppContextRuleRow: View {
                         .padding(.vertical, 5)
                         .background(
                             Capsule(style: .continuous)
-                                .fill(Color.green.opacity(0.09))
+                                .fill(Color.primary.opacity(0.055))
                         )
                         .overlay(
                             Capsule(style: .continuous)
-                                .strokeBorder(Color.green.opacity(0.14), lineWidth: 0.6)
+                                .strokeBorder(Color.primary.opacity(0.085), lineWidth: 0.6)
                         )
                     }
                 }
@@ -1319,7 +1292,7 @@ private struct AppContextRuleRow: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.7)
+                .strokeBorder(Color.primary.opacity(0.075), lineWidth: 0.7)
         )
     }
 }
@@ -1332,11 +1305,11 @@ private struct HistoryEntryRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.blue.opacity(0.12))
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(Color.primary.opacity(0.06))
                 Image(systemName: entry.workflowType.icon)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.blue)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
             }
             .frame(width: 32, height: 32)
 
@@ -1399,11 +1372,11 @@ private struct HotkeyWorkflowRow: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 11) {
                 ZStack {
-                    Circle()
-                        .fill(accent.opacity(0.13))
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(Color.primary.opacity(0.06))
                     Image(systemName: icon)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(accent)
+                        .foregroundStyle(.secondary)
                 }
                 .frame(width: 32, height: 32)
 
