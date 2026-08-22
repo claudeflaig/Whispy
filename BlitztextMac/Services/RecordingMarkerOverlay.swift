@@ -228,11 +228,11 @@ private struct RecordingMarkerView: View {
                         .frame(width: 5, height: 5)
                 }
 
-                Text(model.transcript.isEmpty ? "Ich höre zu …" : model.transcript)
+                Text(model.transcript.isEmpty ? "Ich höre zu …" : latestTranscriptExcerpt)
                     .font(.system(size: 12.5, weight: .medium, design: .rounded))
                     .foregroundStyle(Color.white.opacity(model.transcript.isEmpty ? 0.58 : 0.92))
                     .lineLimit(2)
-                    .truncationMode(.head)
+                    .truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .animation(.easeOut(duration: 0.12), value: model.transcript)
             }
@@ -279,6 +279,20 @@ private struct RecordingMarkerView: View {
             }
             .frame(height: 28)
         }
+    }
+
+    private var latestTranscriptExcerpt: String {
+        let transcript = model.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let maximumCharacters = 150
+        guard transcript.count > maximumCharacters else { return transcript }
+
+        let rawSuffix = String(transcript.suffix(maximumCharacters))
+        if let firstSpace = rawSuffix.firstIndex(where: { $0.isWhitespace }) {
+            let wordsOnly = rawSuffix[rawSuffix.index(after: firstSpace)...]
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return "…\(wordsOnly)"
+        }
+        return "…\(rawSuffix)"
     }
 
     private func panelBackground(cornerRadius: CGFloat) -> some View {
