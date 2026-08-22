@@ -20,6 +20,8 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Whispy benötigt Mikrofon-Zugriff für die Sprach-Transkription.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Whispy transkribiert deine Sprache mit Apple Speech lokal auf diesem Mac.</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>CFBundleIconFile</key>

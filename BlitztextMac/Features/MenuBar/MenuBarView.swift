@@ -253,38 +253,66 @@ struct MenuBarView: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                modeFactRow(label: "Lokal", value: selectedModelInstalled ? appState.selectedLocalModelDisplayName : "Modell fehlt", color: selectedModelInstalled ? .green : .orange)
+                modeFactRow(label: "Lokal", value: appState.selectedLocalEngineDisplayName, color: .green)
                 modeFactRow(label: "OpenAI", value: "Whisper API", color: .blue)
                 modeFactRow(label: "Kürzel", value: "Pro Workflow getrennt", color: .secondary)
             }
 
             HStack(spacing: 8) {
-                Text("Lokales Modell")
+                Text("Lokale Engine")
                     .font(.system(size: 10.5, weight: .medium))
                     .foregroundStyle(.secondary)
 
-                Picker("", selection: Binding(
-                    get: { appState.selectedLocalModelName },
-                    set: { appState.appSettings.selectedLocalTranscriptionModelName = $0 }
-                )) {
-                    ForEach(modelOptions) { model in
-                        Text(model.shortDisplayName).tag(model.id)
+                Picker("", selection: $appState.appSettings.selectedLocalTranscriptionEngine) {
+                    ForEach(appState.availableLocalTranscriptionEngines) { engine in
+                        Text(engine.displayName).tag(engine)
                     }
                 }
                 .labelsHidden()
                 .frame(maxWidth: .infinity)
                 .controlSize(.small)
-                .disabled(appState.isDownloadingLocalModel)
             }
 
-            if let progress = appState.localModelDownloadProgress {
+            if appState.effectiveLocalTranscriptionEngine == .appleSpeech {
+                HStack(alignment: .top, spacing: 7) {
+                    Image(systemName: "apple.intelligence")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.green)
+                    Text("Echtzeit-Text mit Apples SpeechTranscriber. Das Sprachmodell wird beim ersten Einsatz von macOS installiert.")
+                        .font(.system(size: 10.2, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } else {
+                HStack(spacing: 8) {
+                    Text("Whisper-Modell")
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(.secondary)
+
+                    Picker("", selection: Binding(
+                        get: { appState.selectedLocalModelName },
+                        set: { appState.appSettings.selectedLocalTranscriptionModelName = $0 }
+                    )) {
+                        ForEach(modelOptions) { model in
+                            Text(model.shortDisplayName).tag(model.id)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(maxWidth: .infinity)
+                    .controlSize(.small)
+                    .disabled(appState.isDownloadingLocalModel)
+                }
+            }
+
+            if appState.effectiveLocalTranscriptionEngine == .whisperKit,
+               let progress = appState.localModelDownloadProgress {
                 VStack(alignment: .leading, spacing: 4) {
                     ProgressView(value: progress)
                     Text(appState.localModelDownloadStatusText ?? "Modell wird geladen...")
                         .font(.system(size: 10.5))
                         .foregroundStyle(.secondary)
                 }
-            } else if !selectedModelInstalled {
+            } else if appState.effectiveLocalTranscriptionEngine == .whisperKit && !selectedModelInstalled {
                 Button(appState.localModelDownloadButtonTitle) {
                     appState.installSelectedLocalModel()
                 }

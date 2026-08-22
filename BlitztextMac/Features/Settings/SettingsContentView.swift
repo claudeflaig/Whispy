@@ -685,64 +685,98 @@ struct CustomizeSettingsView: View {
                 Toggle("Sicherer Lokaler Modus", isOn: $appState.appSettings.secureLocalModeEnabled)
                     .toggleStyle(.switch)
                     .onChange(of: appState.appSettings.secureLocalModeEnabled) { _, newValue in
-                        if newValue && !appState.selectedLocalModelIsInstalled {
+                        if newValue,
+                           appState.effectiveLocalTranscriptionEngine == .whisperKit,
+                           !appState.selectedLocalModelIsInstalled {
                             appState.installSelectedLocalModel()
                         }
                     }
 
-                HStack(spacing: 6) {
-                    Image(systemName: appState.selectedLocalModelIsInstalled ? "checkmark.circle.fill" : "arrow.down.circle.fill")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(appState.selectedLocalModelIsInstalled ? .green : .blue)
-                    Text(appState.selectedLocalModelIsInstalled ? "\(installedLocalModels.count) lokales WhisperKit-Modell installiert." : "Das ausgewählte Modell wird beim Installieren lokal gespeichert.")
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                }
-
                 HStack(spacing: 8) {
-                    Text("Lokales Modell")
-                        .font(.system(size: 11))
+                    Text("Transkriptions-Engine")
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.secondary)
 
-                    Picker("", selection: Binding(
-                        get: { appState.selectedLocalModelName },
-                        set: { appState.appSettings.selectedLocalTranscriptionModelName = $0 }
-                    )) {
-                        ForEach(localModelOptions) { model in
-                            Text("\(model.displayName) · \(model.installStateLabel)").tag(model.id)
+                    Picker("", selection: $appState.appSettings.selectedLocalTranscriptionEngine) {
+                        ForEach(appState.availableLocalTranscriptionEngines) { engine in
+                            Text("\(engine.displayName) · \(engine.detail)").tag(engine)
                         }
                     }
                     .labelsHidden()
                     .controlSize(.small)
-                    .disabled(appState.isDownloadingLocalModel)
                 }
 
-                if let progress = appState.localModelDownloadProgress {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ProgressView(value: progress)
-                        Text(appState.localModelDownloadStatusText ?? "Modell wird geladen...")
+                if appState.effectiveLocalTranscriptionEngine == .appleSpeech {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "apple.intelligence")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.green)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Apple Speech · Echtzeit")
+                                .font(.system(size: 11.5, weight: .semibold))
+                            Text("SpeechAnalyzer transkribiert vollständig lokal und zeigt Wörter bereits während des Sprechens in der Hotbox. macOS verwaltet das Sprachmodell automatisch.")
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(10)
+                    .background(Color.green.opacity(0.07), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                } else {
+                    HStack(spacing: 6) {
+                        Image(systemName: appState.selectedLocalModelIsInstalled ? "checkmark.circle.fill" : "arrow.down.circle.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(appState.selectedLocalModelIsInstalled ? .green : .blue)
+                        Text(appState.selectedLocalModelIsInstalled ? "\(installedLocalModels.count) lokales WhisperKit-Modell installiert." : "Das ausgewählte Modell wird beim Installieren lokal gespeichert.")
                             .font(.system(size: 10.5))
                             .foregroundStyle(.secondary)
+                        Spacer()
                     }
-                } else {
-                    HStack(spacing: 10) {
-                        Button(appState.localModelDownloadButtonTitle) {
-                            appState.installSelectedLocalModel()
+
+                    HStack(spacing: 8) {
+                        Text("Whisper-Modell")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+
+                        Picker("", selection: Binding(
+                            get: { appState.selectedLocalModelName },
+                            set: { appState.appSettings.selectedLocalTranscriptionModelName = $0 }
+                        )) {
+                            ForEach(localModelOptions) { model in
+                                Text("\(model.displayName) · \(model.installStateLabel)").tag(model.id)
+                            }
                         }
+                        .labelsHidden()
                         .controlSize(.small)
-                        .disabled(appState.selectedLocalModelIsInstalled)
-
-                        Link("Modellseite", destination: LocalTranscriptionService.modelPageURL(for: appState.selectedLocalModelName))
-                            .font(.system(size: 10.5, weight: .medium))
+                        .disabled(appState.isDownloadingLocalModel)
                     }
-                }
 
-                if let errorText = appState.localModelDownloadErrorText {
-                    Text(errorText)
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(.red)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if let progress = appState.localModelDownloadProgress {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ProgressView(value: progress)
+                            Text(appState.localModelDownloadStatusText ?? "Modell wird geladen...")
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        HStack(spacing: 10) {
+                            Button(appState.localModelDownloadButtonTitle) {
+                                appState.installSelectedLocalModel()
+                            }
+                            .controlSize(.small)
+                            .disabled(appState.selectedLocalModelIsInstalled)
+
+                            Link("Modellseite", destination: LocalTranscriptionService.modelPageURL(for: appState.selectedLocalModelName))
+                                .font(.system(size: 10.5, weight: .medium))
+                        }
+                    }
+
+                    if let errorText = appState.localModelDownloadErrorText {
+                        Text(errorText)
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
 

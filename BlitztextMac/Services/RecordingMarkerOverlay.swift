@@ -7,16 +7,23 @@ final class RecordingMarkerOverlay {
     private var window: NSWindow?
     private var updateTimer: Timer?
     private var audioLevelProvider: (() -> Float)?
+    private var transcriptProvider: (() -> String)?
     private var anchorFrame: CGRect?
 
-    func show(audioLevelProvider: @escaping () -> Float) {
+    func show(
+        audioLevelProvider: @escaping () -> Float,
+        transcriptProvider: @escaping () -> String = { "" },
+        showsLiveTranscript: Bool = false
+    ) {
         self.audioLevelProvider = audioLevelProvider
+        self.transcriptProvider = transcriptProvider
         self.anchorFrame = Self.focusedElementFrame()
+        model.showsLiveTranscript = showsLiveTranscript
 
         if window == nil {
             let controller = NSHostingController(rootView: RecordingMarkerView(model: model))
             let panel = RecordingMarkerPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 86, height: 34),
+                contentRect: NSRect(x: 0, y: 0, width: 380, height: 72),
                 styleMask: [.borderless, .nonactivatingPanel],
                 backing: .buffered,
                 defer: false
@@ -31,6 +38,7 @@ final class RecordingMarkerOverlay {
             window = panel
         }
 
+        window?.setContentSize(showsLiveTranscript ? NSSize(width: 380, height: 72) : NSSize(width: 86, height: 34))
         updatePosition()
         model.isVisible = true
         window?.orderFrontRegardless()
@@ -41,6 +49,8 @@ final class RecordingMarkerOverlay {
         stopTimer()
         model.isVisible = false
         audioLevelProvider = nil
+        transcriptProvider = nil
+        model.transcript = ""
         anchorFrame = nil
         window?.orderOut(nil)
     }
@@ -51,6 +61,7 @@ final class RecordingMarkerOverlay {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.model.audioLevel = self.audioLevelProvider?() ?? 0
+                self.model.transcript = self.transcriptProvider?() ?? ""
                 self.updatePosition()
             }
         }
@@ -180,6 +191,8 @@ private final class RecordingMarkerPanel: NSPanel {
 @MainActor
 private final class RecordingMarkerModel: ObservableObject {
     @Published var audioLevel: Float = 0
+    @Published var transcript = ""
+    @Published var showsLiveTranscript = false
     @Published var isVisible = false
 }
 
@@ -187,7 +200,62 @@ private struct RecordingMarkerView: View {
     @ObservedObject var model: RecordingMarkerModel
     @State private var pulse = false
 
+    @ViewBuilder
     var body: some View {
+        if model.showsLiveTranscript {
+            liveBody
+        } else {
+            compactBody
+        }
+    }
+
+    private var liveBody: some View {
+        HStack(spacing: 12) {
+            indicator(barCount: 7)
+
+            Rectangle()
+                .fill(Color.white.opacity(0.12))
+                .frame(width: 1, height: 34)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 5) {
+                    Text("WHISPY LIVE")
+                        .font(.system(size: 8.5, weight: .black, design: .rounded))
+                        .tracking(0.55)
+                        .foregroundStyle(.green)
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 5, height: 5)
+                }
+
+                Text(model.transcript.isEmpty ? "Ich höre zu …" : model.transcript)
+                    .font(.system(size: 12.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(model.transcript.isEmpty ? 0.58 : 0.92))
+                    .lineLimit(2)
+                    .truncationMode(.head)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .animation(.easeOut(duration: 0.12), value: model.transcript)
+            }
+        }
+        .padding(.horizontal, 15)
+        .padding(.vertical, 11)
+        .frame(width: 380, height: 72)
+        .background(panelBackground(cornerRadius: 20))
+        .opacity(model.isVisible ? 1 : 0)
+        .onAppear { pulse = true }
+    }
+
+    private var compactBody: some View {
+        indicator(barCount: 5)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 7)
+            .frame(width: 86, height: 34)
+            .background(panelBackground(cornerRadius: 17))
+            .opacity(model.isVisible ? 1 : 0)
+            .onAppear { pulse = true }
+    }
+
+    private func indicator(barCount: Int) -> some View {
         HStack(spacing: 7) {
             ZStack {
                 Circle()
@@ -203,23 +271,30 @@ private struct RecordingMarkerView: View {
             }
 
             HStack(spacing: 2) {
-                ForEach(0..<5, id: \.self) { index in
+                ForEach(0..<barCount, id: \.self) { index in
                     Capsule()
-                        .fill(Color.white.opacity(0.82))
-                        .frame(width: 3, height: barHeight(for: index))
+                        .fill(
+                            LinearGradient(
+                                colors: [.green, .cyan],
+                                startPoint: .bottom,
+                                endPoint: .top
+                            )
+                        )
+                        .frame(width: 3, height: barHeight(for: index, count: barCount))
                 }
             }
-            .frame(height: 20)
+            .frame(height: 28)
         }
-        .padding(.horizontal, 11)
-        .padding(.vertical, 7)
-        .background(
-            Capsule()
-                .fill(.black.opacity(0.72))
-                .shadow(color: .black.opacity(0.25), radius: 10, y: 4)
-        )
-        .opacity(model.isVisible ? 1 : 0)
-        .onAppear { pulse = true }
+    }
+
+    private func panelBackground(cornerRadius: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(.black.opacity(0.80))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.8)
+            )
+            .shadow(color: .black.opacity(0.30), radius: 15, y: 6)
     }
 
     private var normalizedLevel: CGFloat {
@@ -234,8 +309,10 @@ private struct RecordingMarkerView: View {
         8 + normalizedLevel * 6
     }
 
-    private func barHeight(for index: Int) -> CGFloat {
-        let offsets: [CGFloat] = [0.45, 0.72, 1.0, 0.72, 0.45]
+    private func barHeight(for index: Int, count: Int) -> CGFloat {
+        let offsets: [CGFloat] = count == 5
+            ? [0.45, 0.72, 1.0, 0.72, 0.45]
+            : [0.35, 0.58, 0.82, 1.0, 0.82, 0.58, 0.35]
         let idleWave = CGFloat((index % 2) + 1) * 1.5
         return 5 + idleWave + normalizedLevel * 18 * offsets[index]
     }

@@ -34,6 +34,7 @@ final class AppState {
     private var lastPopoverPasteTarget: PasteTarget?
     private var menuBarStatusResetTask: Task<Void, Never>?
     private var workflowCleanupTask: Task<Void, Never>?
+    private var outputProcessingTask: Task<Void, Never>?
 
     // Persisted settings
     var appSettings: AppSettings {
@@ -64,7 +65,9 @@ final class AppState {
 
     // Computed
     var isConfigured: Bool {
-        KeychainService.isConfigured || !LocalTranscriptionService.installedModels().isEmpty
+        KeychainService.isConfigured
+            || AppleSpeechSessionFactory.isAvailable
+            || !LocalTranscriptionService.installedModels().isEmpty
     }
     var shouldShowOnboarding: Bool {
         !isConfigured && !appSettings.hasSeenOnboarding
@@ -113,12 +116,36 @@ final class AppState {
         case .transcription:
             return "OpenAI Whisper. Serverbasiert."
         case .localTranscription:
-            let modelName = selectedLocalModelName
-            return LocalTranscriptionService.isModelInstalled(modelName)
-                ? "Lokal: \(LocalTranscriptionModel.displayName(for: modelName))."
-                : "Lokales WhisperKit-Modell fehlt."
+            switch effectiveLocalTranscriptionEngine {
+            case .appleSpeech:
+                return "Apple Speech · Live · On-Device."
+            case .whisperKit:
+                let modelName = selectedLocalModelName
+                return LocalTranscriptionService.isModelInstalled(modelName)
+                    ? "WhisperKit: \(LocalTranscriptionModel.displayName(for: modelName))."
+                    : "Lokales WhisperKit-Modell fehlt."
+            }
         case .textImprover, .dampfAblassen, .emojiText:
             return type.subtitle
+        }
+    }
+
+    var availableLocalTranscriptionEngines: [LocalTranscriptionEngine] {
+        AppleSpeechSessionFactory.isAvailable ? [.appleSpeech, .whisperKit] : [.whisperKit]
+    }
+
+    var effectiveLocalTranscriptionEngine: LocalTranscriptionEngine {
+        if appSettings.selectedLocalTranscriptionEngine == .appleSpeech,
+           !AppleSpeechSessionFactory.isAvailable {
+            return .whisperKit
+        }
+        return appSettings.selectedLocalTranscriptionEngine
+    }
+
+    var selectedLocalEngineDisplayName: String {
+        switch effectiveLocalTranscriptionEngine {
+        case .appleSpeech: return "Apple Speech · Live"
+        case .whisperKit: return selectedLocalModelDisplayName
         }
     }
 
@@ -158,9 +185,17 @@ final class AppState {
             return
         }
 
-        activeWorkflow?.stop()
+        // Never discard a recording because another shortcut was pressed accidentally.
+        // Toggle/hold release stops the active workflow through the dedicated hotkey path.
+        if let activeWorkflow, activeWorkflow.phase.isActive {
+            return
+        }
+
+        recordingMarkerOverlay.hide()
+        activeWorkflow?.reset()
         menuBarStatusResetTask?.cancel()
         workflowCleanupTask?.cancel()
+        outputProcessingTask?.cancel()
         activeLaunchSource = source
         activePasteTarget = capturePasteTarget(for: source)
 
@@ -181,7 +216,7 @@ final class AppState {
                 type: .localTranscription,
                 customTerms: textImprovementSettings.customTerms,
                 language: transcriptionSettings.language,
-                backend: .local,
+                backend: effectiveLocalTranscriptionEngine == .appleSpeech ? .appleSpeech : .local,
                 localModelName: selectedLocalModelName
             )
             configureWorkflowHandlers(workflow)
@@ -224,7 +259,10 @@ final class AppState {
     func isWorkflowAvailable(_ type: WorkflowType) -> Bool {
         switch type {
         case .localTranscription:
-            return selectedLocalModelIsInstalled
+            switch effectiveLocalTranscriptionEngine {
+            case .appleSpeech: return AppleSpeechSessionFactory.isAvailable
+            case .whisperKit: return selectedLocalModelIsInstalled
+            }
         case .transcription:
             return KeychainService.isConfigured
         case .textImprover, .dampfAblassen, .emojiText:
@@ -244,13 +282,16 @@ final class AppState {
         activeLaunchSource = .manual
         menuBarStatusResetTask?.cancel()
         workflowCleanupTask?.cancel()
+        outputProcessingTask?.cancel()
+        outputProcessingTask = nil
         menuBarStatus = .idle
         page = .main
     }
 
     func enableSecureLocalMode() {
         appSettings.secureLocalModeEnabled = true
-        if !selectedLocalModelIsInstalled {
+        if effectiveLocalTranscriptionEngine == .whisperKit,
+           !selectedLocalModelIsInstalled {
             installSelectedLocalModel()
         }
     }
@@ -465,15 +506,18 @@ final class AppState {
         appSettings.hasAutoSelectedFastLocalModel = true
     }
 
-    private func handleWorkflowOutput(_ text: String) {
+    private func handleWorkflowOutput(_ text: String, workflowID: ObjectIdentifier) {
+        guard let activeWorkflow, ObjectIdentifier(activeWorkflow) == workflowID else { return }
         let target = activePasteTarget
-        let workflowType = activeWorkflow?.type ?? .transcription
+        let workflowType = activeWorkflow.type
         let launchSource = activeLaunchSource
 
-        Task { @MainActor [weak self] in
+        outputProcessingTask?.cancel()
+        outputProcessingTask = Task { @MainActor [weak self] in
             guard let self else { return }
             await self.processAndPasteWorkflowOutput(
                 text,
+                workflowID: workflowID,
                 workflowType: workflowType,
                 target: target,
                 launchSource: launchSource
@@ -483,6 +527,7 @@ final class AppState {
 
     private func processAndPasteWorkflowOutput(
         _ text: String,
+        workflowID: ObjectIdentifier,
         workflowType: WorkflowType,
         target: PasteTarget?,
         launchSource: WorkflowLaunchSource
@@ -504,6 +549,10 @@ final class AppState {
             finalText = text
         }
 
+        guard !Task.isCancelled,
+              let activeWorkflow,
+              ObjectIdentifier(activeWorkflow) == workflowID else { return }
+
         let entry = DictationHistoryEntry(
             workflowType: workflowType,
             workflowName: displayName(for: workflowType),
@@ -524,11 +573,18 @@ final class AppState {
     }
 
     private func configureWorkflowHandlers<T: Workflow>(_ workflow: T) {
-        workflow.onOutput = { [weak self] text in
-            self?.handleWorkflowOutput(text)
+        let workflowID = ObjectIdentifier(workflow)
+
+        workflow.onOutput = { [weak self, weak workflow] text in
+            guard let self, let workflow, let activeWorkflow = self.activeWorkflow else { return }
+            guard ObjectIdentifier(workflow) == workflowID,
+                  ObjectIdentifier(activeWorkflow) == workflowID else { return }
+            self.handleWorkflowOutput(text, workflowID: workflowID)
         }
         workflow.onPhaseChange = { [weak self, weak workflow] phase in
-            guard let self, let workflow else { return }
+            guard let self, let workflow, let activeWorkflow = self.activeWorkflow else { return }
+            guard ObjectIdentifier(workflow) == workflowID,
+                  ObjectIdentifier(activeWorkflow) == workflowID else { return }
             self.handleWorkflowPhaseChange(phase, workflow: workflow)
         }
     }
@@ -544,9 +600,15 @@ final class AppState {
 
         case .running:
             if workflow.isRecording {
-                recordingMarkerOverlay.show { [weak workflow] in
-                    workflow?.audioLevel ?? 0
-                }
+                recordingMarkerOverlay.show(
+                    audioLevelProvider: { [weak workflow] in
+                        workflow?.audioLevel ?? 0
+                    },
+                    transcriptProvider: { [weak workflow] in
+                        workflow?.liveTranscript ?? ""
+                    },
+                    showsLiveTranscript: workflow.supportsLiveTranscript
+                )
             } else {
                 recordingMarkerOverlay.hide()
             }

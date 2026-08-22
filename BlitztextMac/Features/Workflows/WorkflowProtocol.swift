@@ -190,12 +190,19 @@ protocol Workflow: AnyObject, Observable {
     var phase: WorkflowPhase { get set }
     var isRecording: Bool { get }
     var audioLevel: Float { get }
+    var liveTranscript: String { get }
+    var supportsLiveTranscript: Bool { get }
     var onOutput: WorkflowOutputHandler? { get set }
     var onPhaseChange: WorkflowPhaseChangeHandler? { get set }
 
     func start()
     func stop()
     func reset()
+}
+
+extension Workflow {
+    var liveTranscript: String { "" }
+    var supportsLiveTranscript: Bool { false }
 }
 
 // MARK: - App Context & History
@@ -286,10 +293,32 @@ struct DictationHistoryEntry: Codable, Identifiable, Hashable {
 
 // MARK: - App Settings
 
+enum LocalTranscriptionEngine: String, Codable, CaseIterable, Identifiable {
+    case appleSpeech
+    case whisperKit
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .appleSpeech: return "Apple Speech"
+        case .whisperKit: return "WhisperKit"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .appleSpeech: return "Live, lokal und von macOS verwaltet"
+        case .whisperKit: return "Lokales Whisper-Modell"
+        }
+    }
+}
+
 struct AppSettings: Codable {
     var hotkeyMode: HotkeyMode = .hold
     var hasSeenOnboarding: Bool = false
     var secureLocalModeEnabled: Bool = false
+    var selectedLocalTranscriptionEngine: LocalTranscriptionEngine = .appleSpeech
     var selectedLocalTranscriptionModelName: String = LocalTranscriptionService.recommendedFastModelName
     var hasAutoSelectedFastLocalModel: Bool = false
     var hotkeyCombos: [WorkflowType: HotkeyCombo] = WorkflowType.defaultHotkeyCombos
@@ -299,6 +328,7 @@ struct AppSettings: Codable {
         hotkeyMode: HotkeyMode = .hold,
         hasSeenOnboarding: Bool = false,
         secureLocalModeEnabled: Bool = false,
+        selectedLocalTranscriptionEngine: LocalTranscriptionEngine = .appleSpeech,
         selectedLocalTranscriptionModelName: String = LocalTranscriptionService.recommendedFastModelName,
         hasAutoSelectedFastLocalModel: Bool = false,
         hotkeyCombos: [WorkflowType: HotkeyCombo] = WorkflowType.defaultHotkeyCombos,
@@ -307,6 +337,7 @@ struct AppSettings: Codable {
         self.hotkeyMode = hotkeyMode
         self.hasSeenOnboarding = hasSeenOnboarding
         self.secureLocalModeEnabled = secureLocalModeEnabled
+        self.selectedLocalTranscriptionEngine = selectedLocalTranscriptionEngine
         self.selectedLocalTranscriptionModelName = selectedLocalTranscriptionModelName
         self.hasAutoSelectedFastLocalModel = hasAutoSelectedFastLocalModel
         self.hotkeyCombos = WorkflowType.mergedWithDefaults(WorkflowType.removingUnsupportedCapsLock(from: hotkeyCombos))
@@ -317,6 +348,7 @@ struct AppSettings: Codable {
         case hotkeyMode
         case hasSeenOnboarding
         case secureLocalModeEnabled
+        case selectedLocalTranscriptionEngine
         case selectedLocalTranscriptionModelName
         case hasAutoSelectedFastLocalModel
         case hotkeyCombos
@@ -328,6 +360,12 @@ struct AppSettings: Codable {
         hotkeyMode = try container.decodeIfPresent(HotkeyMode.self, forKey: .hotkeyMode) ?? .hold
         hasSeenOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasSeenOnboarding) ?? false
         secureLocalModeEnabled = try container.decodeIfPresent(Bool.self, forKey: .secureLocalModeEnabled) ?? false
+        // Existing installations predate this setting and used WhisperKit. Preserve that
+        // explicit user experience; fresh installs use the property default (Apple Speech).
+        selectedLocalTranscriptionEngine = try container.decodeIfPresent(
+            LocalTranscriptionEngine.self,
+            forKey: .selectedLocalTranscriptionEngine
+        ) ?? .whisperKit
         selectedLocalTranscriptionModelName = try container.decodeIfPresent(
             String.self,
             forKey: .selectedLocalTranscriptionModelName
@@ -380,6 +418,7 @@ extension WorkflowType {
 enum TranscriptionBackend: String, Codable {
     case remote
     case local
+    case appleSpeech
 }
 
 // MARK: - Workflow Settings

@@ -15,7 +15,7 @@ build/
 
 # Local app artifacts
 Blitztext.app
-Whispy.app
+Whispy*.app
 dist/
 models/
 *.mlmodel

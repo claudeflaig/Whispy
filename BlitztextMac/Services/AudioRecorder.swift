@@ -39,7 +39,14 @@ final class AudioRecorder: NSObject, AVAudioRecorderDelegate {
             audioRecorder = try AVAudioRecorder(url: fileURL, settings: settings)
             audioRecorder?.delegate = self
             audioRecorder?.isMeteringEnabled = true
-            audioRecorder?.record()
+            guard audioRecorder?.record() == true else {
+                audioRecorder = nil
+                currentFileURL = nil
+                try? FileManager.default.removeItem(at: fileURL)
+                errorMessage = "Aufnahme konnte nicht gestartet werden."
+                isRecording = false
+                return
+            }
             isRecording = true
             startMetering()
         } catch {

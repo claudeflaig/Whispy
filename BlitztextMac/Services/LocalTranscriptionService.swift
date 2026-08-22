@@ -116,6 +116,8 @@ actor LocalTranscriptionService {
 
     private var whisperKit: WhisperKit?
     private var loadedModelName: String?
+    private var streamingTranscriber: AudioStreamTranscriber?
+    private var streamingTask: Task<Void, Error>?
 
     static var isModelInstalled: Bool {
         isModelInstalled(defaultModelName)
@@ -253,6 +255,108 @@ actor LocalTranscriptionService {
             try? fileManager.removeItem(at: downloadRoot)
             throw error
         }
+    }
+
+    func startStreaming(
+        language: String,
+        modelName: String,
+        updateHandler: @escaping @Sendable (String, Float) -> Void
+    ) async throws {
+        await cancelStreaming()
+
+        let pipeline = try await pipeline(modelName: modelName)
+        guard let tokenizer = pipeline.tokenizer else {
+            throw LocalTranscriptionError.downloadedModelInvalid(Self.normalizedModelName(modelName))
+        }
+
+        let resolvedLanguage = language.trimmingCharacters(in: .whitespacesAndNewlines)
+        let decodingOptions = DecodingOptions(
+            task: .transcribe,
+            language: resolvedLanguage.isEmpty ? nil : resolvedLanguage
+        )
+
+        let transcriber = AudioStreamTranscriber(
+            audioEncoder: pipeline.audioEncoder,
+            featureExtractor: pipeline.featureExtractor,
+            segmentSeeker: pipeline.segmentSeeker,
+            textDecoder: pipeline.textDecoder,
+            tokenizer: tokenizer,
+            audioProcessor: pipeline.audioProcessor,
+            decodingOptions: decodingOptions,
+            requiredSegmentsForConfirmation: 1,
+            silenceThreshold: 0.3,
+            compressionCheckWindow: 60,
+            useVAD: true
+        ) { _, state in
+            let confirmed = state.confirmedSegments.map(\.text).joined(separator: " ")
+            let unconfirmed = state.unconfirmedSegments.map(\.text).joined(separator: " ")
+            let partial = state.currentText == "Waiting for speech..." ? "" : state.currentText
+            let text = [confirmed, unconfirmed, partial]
+                .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                .joined(separator: " ")
+                .replacingOccurrences(of: "  ", with: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            updateHandler(text, state.bufferEnergy.last ?? 0)
+        }
+
+        streamingTranscriber = transcriber
+        streamingTask = Task(priority: .userInitiated) {
+            try await transcriber.startStreamTranscription()
+        }
+
+        // Give the microphone stream one scheduling turn before presenting it as live.
+        try await Task.sleep(for: .milliseconds(120))
+        if let streamingTask, streamingTask.isCancelled {
+            throw CancellationError()
+        }
+    }
+
+    func stopStreamingPreview() async {
+        if let streamingTranscriber {
+            await streamingTranscriber.stopStreamTranscription()
+        }
+        do {
+            try await streamingTask?.value
+        } catch {
+            // The reliable final pass uses the separately recorded complete utterance.
+        }
+        streamingTask = nil
+        streamingTranscriber = nil
+    }
+
+    func transcribe(audioSamples: [Float], language: String, modelName: String) async throws -> String {
+        guard !audioSamples.isEmpty else {
+            throw LocalTranscriptionError.noText
+        }
+
+        let pipeline = try await pipeline(modelName: modelName)
+        let resolvedLanguage = language.trimmingCharacters(in: .whitespacesAndNewlines)
+        let decodingOptions = DecodingOptions(
+            task: .transcribe,
+            language: resolvedLanguage.isEmpty ? nil : resolvedLanguage
+        )
+        let results: [TranscriptionResult] = try await pipeline.transcribe(
+            audioArray: audioSamples,
+            decodeOptions: decodingOptions
+        )
+        let text = results
+            .map(\.text)
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !text.isEmpty else {
+            throw LocalTranscriptionError.noText
+        }
+        return text
+    }
+
+    func cancelStreaming() async {
+        if let streamingTranscriber {
+            await streamingTranscriber.stopStreamTranscription()
+        }
+        streamingTask?.cancel()
+        streamingTask = nil
+        streamingTranscriber = nil
     }
 
     func transcribe(audioURL: URL, language: String, modelName: String) async throws -> String {
