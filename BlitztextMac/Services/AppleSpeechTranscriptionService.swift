@@ -39,6 +39,10 @@ enum AppleSpeechTranscriptionError: LocalizedError {
 }
 
 enum AppleSpeechSessionFactory {
+    @MainActor private static var warmedSession: (any AppleSpeechSessionProtocol)?
+    @MainActor private static var warmedKey: String?
+    @MainActor private static var warmupTask: Task<Void, Never>?
+
     static var isAvailable: Bool {
         if #available(macOS 26.0, *) {
             return SpeechTranscriber.isAvailable
@@ -54,7 +58,47 @@ enum AppleSpeechSessionFactory {
         guard SpeechTranscriber.isAvailable else {
             throw AppleSpeechTranscriptionError.unavailable
         }
+
+        let key = sessionKey(language: language, customTerms: customTerms)
+        if warmedKey == key, let session = warmedSession {
+            warmedSession = nil
+            warmedKey = nil
+            warmupTask = nil
+            return session
+        }
+
+        warmupTask?.cancel()
+        warmupTask = nil
         return AppleSpeechSession(language: language, customTerms: customTerms)
+    }
+
+    @MainActor
+    static func prewarm(language: String, customTerms: [String]) {
+        guard #available(macOS 26.0, *), SpeechTranscriber.isAvailable else { return }
+        let key = sessionKey(language: language, customTerms: customTerms)
+        guard warmedKey != key else { return }
+
+        warmupTask?.cancel()
+        warmedSession = nil
+        warmedKey = nil
+        warmupTask = Task { @MainActor in
+            let session = AppleSpeechSession(language: language, customTerms: customTerms)
+            do {
+                try await session.start()
+                try Task.checkCancellation()
+                warmedSession = session
+                warmedKey = key
+            } catch {
+                await session.cancel()
+            }
+            warmupTask = nil
+        }
+    }
+
+    @MainActor
+    private static func sessionKey(language: String, customTerms: [String]) -> String {
+        let terms = customTerms.prefix(50).joined(separator: "\u{1F}")
+        return "\(language.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())\u{1E}\(terms)"
     }
 }
 
@@ -100,6 +144,7 @@ private final class AppleSpeechSession: AppleSpeechSessionProtocol {
     }
 
     func start() async throws {
+        guard !isStarted else { return }
         let requestedLocale = Self.locale(for: language)
         guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: requestedLocale) else {
             throw AppleSpeechTranscriptionError.unsupportedLocale(requestedLocale.identifier)
@@ -137,6 +182,11 @@ private final class AppleSpeechSession: AppleSpeechSessionProtocol {
             context.contextualStrings[.general] = customTerms
             try? await analyzer.setContext(context)
         }
+
+        // Explicit preparation loads the acoustic model before microphone audio arrives.
+        // A prewarmed session can therefore emit volatile results almost immediately.
+        try await analyzer.prepareToAnalyze(in: format)
+        try Task.checkCancellation()
 
         finalizedText = ""
         latestText = ""
@@ -280,8 +330,6 @@ private final class AppleSpeechAudioCapture: @unchecked Sendable {
             converter = nil
             fallbackConverter = nil
             self.nativeFormat = nil
-            outputFormat = nil
-            onBuffer = nil
             pendingBuffers.removeAll(keepingCapacity: true)
             fallbackSamples.removeAll(keepingCapacity: true)
         }
@@ -289,6 +337,9 @@ private final class AppleSpeechAudioCapture: @unchecked Sendable {
         let input = engine.inputNode
         let nativeFormat = input.outputFormat(forBus: 0)
         self.nativeFormat = nativeFormat
+        if let preparedOutputFormat = outputFormat, nativeFormat != preparedOutputFormat {
+            converter = AVAudioConverter(from: nativeFormat, to: preparedOutputFormat)
+        }
         if let fallbackFormat = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
             sampleRate: 16_000,

@@ -35,19 +35,27 @@ final class AppState {
     private var menuBarStatusResetTask: Task<Void, Never>?
     private var workflowCleanupTask: Task<Void, Never>?
     private var outputProcessingTask: Task<Void, Never>?
+    private var applePrewarmRequestTask: Task<Void, Never>?
 
     // Persisted settings
     var appSettings: AppSettings {
         didSet {
             hotkeyService.configure(hotkeyCombos: appSettings.hotkeyCombos)
             saveSettings()
+            scheduleAppleSpeechPrewarm()
         }
     }
     var transcriptionSettings: TranscriptionSettings {
-        didSet { saveSettings() }
+        didSet {
+            saveSettings()
+            scheduleAppleSpeechPrewarm()
+        }
     }
     var textImprovementSettings: TextImprovementSettings {
-        didSet { saveSettings() }
+        didSet {
+            saveSettings()
+            scheduleAppleSpeechPrewarm()
+        }
     }
     var dampfAblassenSettings: DampfAblassenSettings {
         didSet { saveSettings() }
@@ -87,6 +95,20 @@ final class AppState {
         hotkeyService.configure(hotkeyCombos: appSettings.hotkeyCombos)
         refreshAccessibilityPermission()
         autoSelectFastLocalModelIfNeeded()
+        scheduleAppleSpeechPrewarm()
+    }
+
+    private func scheduleAppleSpeechPrewarm() {
+        applePrewarmRequestTask?.cancel()
+        guard effectiveLocalTranscriptionEngine == .appleSpeech else { return }
+
+        let language = transcriptionSettings.language
+        let customTerms = textImprovementSettings.customTerms
+        applePrewarmRequestTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(450))
+            guard let self, !Task.isCancelled, self.activeWorkflow == nil else { return }
+            AppleSpeechSessionFactory.prewarm(language: language, customTerms: customTerms)
+        }
     }
 
     // MARK: - Custom Display Names
@@ -569,6 +591,7 @@ final class AppState {
         if launchSource == .hotkeyBackground {
             page = .main
         }
+        scheduleAppleSpeechPrewarm()
         scheduleWorkflowCleanup(after: 1.15)
     }
 

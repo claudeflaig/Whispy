@@ -222,7 +222,7 @@ private struct RecordingMarkerView: View {
                     Text("WHISPY LIVE")
                         .font(.system(size: 8.5, weight: .black, design: .rounded))
                         .tracking(0.55)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.white.opacity(0.92))
                     Circle()
                         .fill(Color.green)
                         .frame(width: 5, height: 5)
@@ -273,13 +273,7 @@ private struct RecordingMarkerView: View {
             HStack(spacing: 2) {
                 ForEach(0..<barCount, id: \.self) { index in
                     Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [.green, .cyan],
-                                startPoint: .bottom,
-                                endPoint: .top
-                            )
-                        )
+                        .fill(Color.white.opacity(0.92))
                         .frame(width: 3, height: barHeight(for: index, count: barCount))
                 }
             }

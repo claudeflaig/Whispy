@@ -270,9 +270,14 @@ actor LocalTranscriptionService {
         }
 
         let resolvedLanguage = language.trimmingCharacters(in: .whitespacesAndNewlines)
+        // The live HUD favors low latency. The complete file is transcribed again with
+        // the full quality defaults after recording stops.
         let decodingOptions = DecodingOptions(
             task: .transcribe,
-            language: resolvedLanguage.isEmpty ? nil : resolvedLanguage
+            language: resolvedLanguage.isEmpty ? nil : resolvedLanguage,
+            temperatureFallbackCount: 1,
+            sampleLength: 96,
+            topK: 3
         )
 
         let transcriber = AudioStreamTranscriber(
@@ -284,8 +289,8 @@ actor LocalTranscriptionService {
             audioProcessor: pipeline.audioProcessor,
             decodingOptions: decodingOptions,
             requiredSegmentsForConfirmation: 1,
-            silenceThreshold: 0.3,
-            compressionCheckWindow: 60,
+            silenceThreshold: 0.18,
+            compressionCheckWindow: 32,
             useVAD: true
         ) { _, state in
             let confirmed = state.confirmedSegments.map(\.text).joined(separator: " ")
@@ -304,8 +309,8 @@ actor LocalTranscriptionService {
             try await transcriber.startStreamTranscription()
         }
 
-        // Give the microphone stream one scheduling turn before presenting it as live.
-        try await Task.sleep(for: .milliseconds(120))
+        // One short scheduling turn is enough for the microphone actor to enter its loop.
+        try await Task.sleep(for: .milliseconds(20))
         if let streamingTask, streamingTask.isCancelled {
             throw CancellationError()
         }
