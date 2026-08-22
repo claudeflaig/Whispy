@@ -17,6 +17,7 @@ struct MenuBarView: View {
             }
         }
         .frame(width: 420)
+        .tint(.raycastRed)
         .animation(.easeInOut(duration: 0.2), value: appState.page)
     }
 
@@ -56,12 +57,12 @@ struct MenuBarView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Workflows")
-                    .font(.system(size: 10.5, weight: .bold))
+                    .font(.raycast(size: 10.5, weight: .bold))
                     .tracking(0.7)
                     .foregroundStyle(.secondary)
                 Spacer()
                 Text("Sprechen statt tippen")
-                    .font(.system(size: 10))
+                    .font(.raycast(size: 10))
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 2)
@@ -93,24 +94,24 @@ struct MenuBarView: View {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .fill(Color.primary.opacity(0.085))
+                        .fill(Color.raycastRed.opacity(0.14))
                         .overlay(
                             RoundedRectangle(cornerRadius: 11, style: .continuous)
-                                .strokeBorder(Color.primary.opacity(0.11), lineWidth: 0.7)
+                                .strokeBorder(Color.raycastRed.opacity(0.26), lineWidth: 0.7)
                         )
                     Image(systemName: "waveform.badge.microphone")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Color.primary.opacity(0.86))
+                        .font(.raycast(size: 17, weight: .semibold))
+                        .foregroundStyle(Color.raycastRed)
                 }
                 .frame(width: 42, height: 42)
 
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text("Whispy")
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .font(.raycast(size: 18, weight: .bold))
                             .foregroundStyle(.primary)
                         Text("Preview")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.raycast(size: 9, weight: .bold))
                             .tracking(0.5)
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 6)
@@ -118,7 +119,7 @@ struct MenuBarView: View {
                             .background(Capsule(style: .continuous).fill(Color.primary.opacity(0.06)))
                     }
                     Text("Lokale und OpenAI-Diktate in jedem Textfeld.")
-                        .font(.system(size: 10.5, weight: .medium))
+                        .font(.raycast(size: 10.5, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
 
@@ -130,7 +131,7 @@ struct MenuBarView: View {
                     } label: {
                         ZStack(alignment: .topTrailing) {
                             Image(systemName: "slider.horizontal.3")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.raycast(size: 14, weight: .semibold))
                                 .foregroundStyle(.primary.opacity(0.72))
                                 .frame(width: 34, height: 34)
                                 .background(
@@ -157,7 +158,7 @@ struct MenuBarView: View {
                         NSApplication.shared.terminate(nil)
                     } label: {
                         Label("Beenden", systemImage: "power")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.raycast(size: 11, weight: .semibold))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 10)
                             .frame(height: 34)
@@ -200,7 +201,7 @@ struct MenuBarView: View {
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
                         .fill(Color.primary.opacity(0.065))
                     Image(systemName: "arrow.triangle.branch")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.raycast(size: 13, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
                 .frame(width: 32, height: 32)
@@ -208,11 +209,11 @@ struct MenuBarView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Text("Transkription")
-                            .font(.system(size: 12.5, weight: .semibold))
+                            .font(.raycast(size: 12.5, weight: .semibold))
                             .foregroundStyle(.primary)
 
                         Text("LOKAL + OPENAI")
-                            .font(.system(size: 8.5, weight: .bold))
+                            .font(.raycast(size: 8.5, weight: .bold))
                             .tracking(0.35)
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 6)
@@ -224,7 +225,7 @@ struct MenuBarView: View {
                     }
 
                     Text("Du kannst lokale und serverbasierte Kürzel parallel verwenden.")
-                        .font(.system(size: 10.5))
+                        .font(.raycast(size: 10.5))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -240,7 +241,7 @@ struct MenuBarView: View {
 
             HStack(spacing: 8) {
                 Text("Lokale Engine")
-                    .font(.system(size: 10.5, weight: .medium))
+                    .font(.raycast(size: 10.5, weight: .medium))
                     .foregroundStyle(.secondary)
 
                 Picker("", selection: $appState.appSettings.selectedLocalTranscriptionEngine) {
@@ -256,17 +257,17 @@ struct MenuBarView: View {
             if appState.effectiveLocalTranscriptionEngine == .appleSpeech {
                 HStack(alignment: .top, spacing: 7) {
                     Image(systemName: "apple.intelligence")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.raycast(size: 11, weight: .semibold))
                         .foregroundStyle(.secondary)
                     Text("Echtzeit-Text mit Apples SpeechTranscriber. Das Sprachmodell wird beim ersten Einsatz von macOS installiert.")
-                        .font(.system(size: 10.2, weight: .medium))
+                        .font(.raycast(size: 10.2, weight: .medium))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             } else {
                 HStack(spacing: 8) {
                     Text("Whisper-Modell")
-                        .font(.system(size: 10.5, weight: .medium))
+                        .font(.raycast(size: 10.5, weight: .medium))
                         .foregroundStyle(.secondary)
 
                     Picker("", selection: Binding(
@@ -289,7 +290,7 @@ struct MenuBarView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     ProgressView(value: progress)
                     Text(appState.localModelDownloadStatusText ?? "Modell wird geladen...")
-                        .font(.system(size: 10.5))
+                        .font(.raycast(size: 10.5))
                         .foregroundStyle(.secondary)
                 }
             } else if appState.effectiveLocalTranscriptionEngine == .whisperKit && !selectedModelInstalled {
@@ -301,7 +302,7 @@ struct MenuBarView: View {
 
             if let errorText = appState.localModelDownloadErrorText {
                 Text(errorText)
-                    .font(.system(size: 10.5))
+                    .font(.raycast(size: 10.5))
                     .foregroundStyle(.red)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -320,11 +321,11 @@ struct MenuBarView: View {
     private func modeFactRow(label: String, value: String, color: Color) -> some View {
         HStack(spacing: 8) {
             Text(label)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.raycast(size: 10, weight: .semibold))
                 .foregroundStyle(.tertiary)
                 .frame(width: 70, alignment: .leading)
             Text(value)
-                .font(.system(size: 10.5, weight: .medium))
+                .font(.raycast(size: 10.5, weight: .medium))
                 .foregroundStyle(color)
                 .lineLimit(1)
             Spacer(minLength: 0)
@@ -349,11 +350,11 @@ struct MenuBarView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Label("Verlauf", systemImage: "clock.arrow.circlepath")
-                    .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                    .font(.raycast(size: 11.5, weight: .bold))
                     .foregroundStyle(.primary)
                 Spacer()
                 Text("letzte 20")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.raycast(size: 9, weight: .bold))
                     .tracking(0.4)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 7)
@@ -364,10 +365,10 @@ struct MenuBarView: View {
             if appState.dictationHistory.isEmpty {
                 HStack(alignment: .top, spacing: 9) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.raycast(size: 12, weight: .semibold))
                         .foregroundStyle(.secondary)
                     Text("Deine letzten Diktate erscheinen hier direkt im Menübar-Popup — lokal gespeichert und sofort wiederverwendbar.")
-                        .font(.system(size: 10.8, weight: .medium))
+                        .font(.raycast(size: 10.8, weight: .medium))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -390,13 +391,13 @@ struct MenuBarView: View {
 
                 HStack(spacing: 8) {
                     Text("Nur lokal auf diesem Mac")
-                        .font(.system(size: 9.8, weight: .medium))
+                        .font(.raycast(size: 9.8, weight: .medium))
                         .foregroundStyle(.tertiary)
                     Spacer()
                     Button("Löschen") {
                         appState.clearDictationHistory()
                     }
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.raycast(size: 10, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .buttonStyle(SubtleButtonStyle())
                 }
@@ -417,17 +418,17 @@ struct MenuBarView: View {
     private var accessibilityHintBanner: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "hand.raised.fill")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.raycast(size: 12, weight: .semibold))
                 .foregroundStyle(.orange)
                 .frame(width: 18, height: 18)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("Einfügen braucht Bedienungshilfen.")
-                    .font(.system(size: 11.5, weight: .semibold))
+                    .font(.raycast(size: 11.5, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 Text("Nach Updates kann macOS die Freigabe neu verlangen.")
-                    .font(.system(size: 10.5))
+                    .font(.raycast(size: 10.5))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -437,7 +438,7 @@ struct MenuBarView: View {
             Button("Öffnen") {
                 appState.requestAccessibilityPermission()
             }
-            .font(.system(size: 10.5, weight: .medium))
+            .font(.raycast(size: 10.5, weight: .medium))
             .buttonStyle(SubtleButtonStyle())
         }
         .padding(10)
@@ -464,17 +465,17 @@ struct MenuBarView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Bereit für Diktat")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(.raycast(size: 14, weight: .bold))
                     .foregroundStyle(.primary)
                 Text("fn lokal · fn + Shift OpenAI")
-                    .font(.system(size: 10.5, weight: .medium))
+                    .font(.raycast(size: 10.5, weight: .medium))
                     .foregroundStyle(.secondary)
             }
 
             Spacer()
 
             Text("LIVE")
-                .font(.system(size: 9, weight: .black))
+                .font(.raycast(size: 9, weight: .black))
                 .tracking(0.7)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 8)
@@ -496,17 +497,17 @@ struct MenuBarView: View {
     private var installHintBanner: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "externaldrive.badge.plus")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.raycast(size: 12, weight: .semibold))
                 .foregroundStyle(.orange)
                 .frame(width: 18, height: 18)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("Für sauberen Anmeldestart nach /Applications verschieben.")
-                    .font(.system(size: 11.5, weight: .semibold))
+                    .font(.raycast(size: 11.5, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 Text("Sonst entstehen leichter doppelte Login-Items oder uneinheitliche Updates.")
-                    .font(.system(size: 10.5))
+                    .font(.raycast(size: 10.5))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -516,7 +517,7 @@ struct MenuBarView: View {
             Button("Prüfen") {
                 appState.openSettings()
             }
-            .font(.system(size: 10.5, weight: .medium))
+            .font(.raycast(size: 10.5, weight: .medium))
             .buttonStyle(SubtleButtonStyle())
         }
         .padding(10)
@@ -534,7 +535,7 @@ struct MenuBarView: View {
         VStack(spacing: 0) {
             HStack {
                 Text("Willkommen bei Whispy")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.raycast(size: 12, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 Spacer()
@@ -542,7 +543,7 @@ struct MenuBarView: View {
                 Button("Später") {
                     appState.page = .main
                 }
-                .font(.system(size: 11, weight: .medium))
+                .font(.raycast(size: 11, weight: .medium))
                 .buttonStyle(SubtleButtonStyle())
                 .foregroundStyle(.secondary)
             }
@@ -562,16 +563,16 @@ struct MenuBarView: View {
                             .fill(Color.primary.opacity(0.055))
                             .frame(width: 42, height: 42)
                         Image(systemName: "sparkles")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.raycast(size: 16, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Einmal einrichten, dann direkt loslegen.")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.raycast(size: 14, weight: .semibold))
                             .foregroundStyle(.primary)
                         Text("Eigenen OpenAI API Key eintragen. Danach sprechen und einfügen.")
-                            .font(.system(size: 11.5))
+                            .font(.raycast(size: 11.5))
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -592,7 +593,7 @@ struct MenuBarView: View {
                         appState.openSettings()
                     } label: {
                         Text("Jetzt einrichten")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.raycast(size: 12, weight: .medium))
                             .foregroundStyle(.primary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 7)
@@ -608,7 +609,7 @@ struct MenuBarView: View {
                     .buttonStyle(SubtleButtonStyle())
 
                     Text("Du findest alles später im Zahnrad.")
-                        .font(.system(size: 10.5))
+                        .font(.raycast(size: 10.5))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
@@ -629,17 +630,17 @@ struct MenuBarView: View {
                     .fill(Color.orange.opacity(0.1))
                     .frame(width: 40, height: 40)
                 Image(systemName: "key.fill")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.raycast(size: 16, weight: .medium))
                     .foregroundStyle(.orange)
             }
 
             VStack(spacing: 4) {
                 Text("Einrichtung n\u{00F6}tig")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.raycast(size: 14, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 Text("\u{00D6}ffne die Einstellungen und hinterlege deine Zugangsdaten, um loszulegen.")
-                    .font(.system(size: 11.5))
+                    .font(.raycast(size: 11.5))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(nil)
@@ -651,7 +652,7 @@ struct MenuBarView: View {
                 appState.openSettings()
             } label: {
                 Text("Einstellungen \u{00F6}ffnen")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.raycast(size: 12, weight: .medium))
                     .foregroundStyle(.primary)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 7)
@@ -671,7 +672,7 @@ struct MenuBarView: View {
     private func onboardingStep(number: String, title: String, detail: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Text(number)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.raycast(size: 11, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .frame(width: 18, height: 18)
                 .background(
@@ -681,10 +682,10 @@ struct MenuBarView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 11.5, weight: .semibold))
+                    .font(.raycast(size: 11.5, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text(detail)
-                    .font(.system(size: 11))
+                    .font(.raycast(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -694,17 +695,17 @@ struct MenuBarView: View {
     private var onboardingInstallCard: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "arrow.down.app")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.raycast(size: 12, weight: .semibold))
                 .foregroundStyle(.orange)
                 .frame(width: 18, height: 18)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Lege Whispy zuerst nach /Applications.")
-                    .font(.system(size: 11.5, weight: .semibold))
+                    .font(.raycast(size: 11.5, weight: .semibold))
                     .foregroundStyle(.primary)
 
                 Text("Das hält Anmeldestart, spätere Updates und das Entfernen sauber auf einer einzigen App-Kopie.")
-                    .font(.system(size: 11))
+                    .font(.raycast(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -731,9 +732,9 @@ struct MenuBarView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.raycast(size: 10, weight: .semibold))
                         Text("Zur\u{00FC}ck")
-                            .font(.system(size: 12))
+                            .font(.raycast(size: 12))
                             .fixedSize()
                     }
                     .foregroundStyle(.secondary)
@@ -742,7 +743,7 @@ struct MenuBarView: View {
                 .frame(width: 120, alignment: .leading)
 
                 Text("Einstellungen")
-                    .font(.system(size: 13.5, weight: .semibold))
+                    .font(.raycast(size: 13.5, weight: .semibold))
                     .lineLimit(1)
                     .fixedSize()
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -771,9 +772,9 @@ struct MenuBarView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "hand.raised")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.raycast(size: 10, weight: .semibold))
                         Text("Rechte")
-                            .font(.system(size: 12))
+                            .font(.raycast(size: 12))
                             .fixedSize()
                     }
                     .foregroundStyle(.orange)
@@ -786,9 +787,9 @@ struct MenuBarView: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "power")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.raycast(size: 10, weight: .semibold))
                     Text("Beenden")
-                        .font(.system(size: 12))
+                        .font(.raycast(size: 12))
                         .fixedSize()
                 }
                 .foregroundStyle(.secondary)
@@ -810,9 +811,9 @@ struct MenuBarView: View {
                     } label: {
                         HStack(spacing: 3) {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 10, weight: .semibold))
+                                .font(.raycast(size: 10, weight: .semibold))
                             Text("Zur\u{00FC}ck")
-                                .font(.system(size: 12))
+                                .font(.raycast(size: 12))
                         }
                         .foregroundStyle(.secondary)
                     }
@@ -822,10 +823,10 @@ struct MenuBarView: View {
 
                     HStack(spacing: 5) {
                         Image(systemName: workflow.type.icon)
-                            .font(.system(size: 11))
+                            .font(.raycast(size: 11))
                             .foregroundStyle(workflowIconColor(workflow.type))
                         Text(appState.displayName(for: workflow.type))
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.raycast(size: 12, weight: .medium))
                             .foregroundStyle(.primary)
                     }
                 }
@@ -867,7 +868,7 @@ struct MenuBarView: View {
             Button("Beenden") {
                 NSApplication.shared.terminate(nil)
             }
-            .font(.system(size: 10, weight: .medium))
+            .font(.raycast(size: 10, weight: .medium))
             .foregroundStyle(.quaternary)
             .buttonStyle(SubtleButtonStyle())
             Spacer()
@@ -891,7 +892,7 @@ private struct MenuHistoryEntryRow: View {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .fill(Color.primary.opacity(0.06))
                 Image(systemName: entry.workflowType.icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.raycast(size: 11, weight: .semibold))
                     .foregroundStyle(.secondary)
             }
             .frame(width: 30, height: 30)
@@ -899,12 +900,12 @@ private struct MenuHistoryEntryRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 5) {
                     Text(entry.workflowName)
-                        .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                        .font(.raycast(size: 10.5, weight: .bold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
 
                     Text(entry.contextCategory.displayName)
-                        .font(.system(size: 8, weight: .black))
+                        .font(.raycast(size: 8, weight: .black))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
@@ -912,14 +913,14 @@ private struct MenuHistoryEntryRow: View {
 
                     if let appName = entry.appName {
                         Text(appName)
-                            .font(.system(size: 9))
+                            .font(.raycast(size: 9))
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
                     }
                 }
 
                 Text(entry.finalText)
-                    .font(.system(size: 10.4, weight: .medium))
+                    .font(.raycast(size: 10.4, weight: .medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -930,7 +931,7 @@ private struct MenuHistoryEntryRow: View {
             HStack(spacing: 4) {
                 Button(action: copyAction) {
                     Image(systemName: "doc.on.doc")
-                        .font(.system(size: 10.5, weight: .semibold))
+                        .font(.raycast(size: 10.5, weight: .semibold))
                         .frame(width: 24, height: 24)
                 }
                 .help("Kopieren")
@@ -938,7 +939,7 @@ private struct MenuHistoryEntryRow: View {
 
                 Button(action: pasteAction) {
                     Image(systemName: "arrow.turn.down.left")
-                        .font(.system(size: 10.5, weight: .semibold))
+                        .font(.raycast(size: 10.5, weight: .semibold))
                         .frame(width: 24, height: 24)
                 }
                 .help("Einfügen")
@@ -1021,7 +1022,7 @@ struct TranscriptionActiveView: View {
             .buttonStyle(.plain)
 
             Text("Ich h\u{00F6}re zu \u{2026} Klicke zum Stoppen.")
-                .font(.system(size: 11))
+                .font(.raycast(size: 11))
                 .foregroundStyle(.tertiary)
 
             Spacer().frame(height: 8)
@@ -1048,7 +1049,7 @@ struct TextImproverActiveView: View {
                             .controlSize(.small)
                         if case .running(let msg) = workflow.phase {
                             Text(msg)
-                                .font(.system(size: 11.5))
+                                .font(.raycast(size: 11.5))
                                 .foregroundStyle(.secondary)
                                 .lineLimit(nil)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -1094,7 +1095,7 @@ struct TextImproverActiveView: View {
             .buttonStyle(.plain)
 
             Text("Ich h\u{00F6}re zu \u{2026} Klicke zum Stoppen.")
-                .font(.system(size: 11))
+                .font(.raycast(size: 11))
                 .foregroundStyle(.tertiary)
 
             Spacer().frame(height: 8)
@@ -1121,7 +1122,7 @@ struct DampfAblassenActiveView: View {
                             .controlSize(.small)
                         if case .running(let msg) = workflow.phase {
                             Text(msg)
-                                .font(.system(size: 11.5))
+                                .font(.raycast(size: 11.5))
                                 .foregroundStyle(.secondary)
                                 .lineLimit(nil)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -1167,7 +1168,7 @@ struct DampfAblassenActiveView: View {
             .buttonStyle(.plain)
 
             Text("Ich h\u{00F6}re zu \u{2026} Klicke zum Stoppen.")
-                .font(.system(size: 11))
+                .font(.raycast(size: 11))
                 .foregroundStyle(.tertiary)
 
             Spacer().frame(height: 8)
@@ -1194,7 +1195,7 @@ struct EmojiTextActiveView: View {
                             .controlSize(.small)
                         if case .running(let msg) = workflow.phase {
                             Text(msg)
-                                .font(.system(size: 11.5))
+                                .font(.raycast(size: 11.5))
                                 .foregroundStyle(.secondary)
                                 .lineLimit(nil)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -1240,7 +1241,7 @@ struct EmojiTextActiveView: View {
             .buttonStyle(.plain)
 
             Text("Ich h\u{00F6}re zu \u{2026} Klicke zum Stoppen.")
-                .font(.system(size: 11))
+                .font(.raycast(size: 11))
                 .foregroundStyle(.tertiary)
 
             Spacer().frame(height: 8)
@@ -1257,7 +1258,7 @@ private func processingView(message: String) -> some View {
             .scaleEffect(0.7)
             .controlSize(.small)
         Text(message)
-            .font(.system(size: 11.5))
+            .font(.raycast(size: 11.5))
             .foregroundStyle(.secondary)
         Spacer().frame(height: 24)
     }
@@ -1272,16 +1273,16 @@ private func autoPasteView(text: String) -> some View {
                 .fill(Color.green.opacity(0.1))
                 .frame(width: 44, height: 44)
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 24))
+                .font(.raycast(size: 24))
                 .foregroundStyle(.green)
         }
 
         Text("Eingef\u{00FC}gt")
-            .font(.system(size: 14, weight: .semibold))
+            .font(.raycast(size: 14, weight: .semibold))
             .foregroundStyle(.primary)
 
         Text(text)
-            .font(.system(size: 11))
+            .font(.raycast(size: 11))
             .foregroundStyle(.secondary)
             .lineLimit(3)
             .multilineTextAlignment(.center)
@@ -1300,12 +1301,12 @@ private func errorView(message: String, onRetry: @escaping () -> Void) -> some V
                 .fill(Color.orange.opacity(0.1))
                 .frame(width: 40, height: 40)
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 18))
+                .font(.raycast(size: 18))
                 .foregroundStyle(.orange)
         }
 
         Text(message)
-            .font(.system(size: 11.5))
+            .font(.raycast(size: 11.5))
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
             .lineLimit(nil)
@@ -1314,7 +1315,7 @@ private func errorView(message: String, onRetry: @escaping () -> Void) -> some V
 
         Button(action: onRetry) {
             Text("Nochmal versuchen")
-                .font(.system(size: 12, weight: .medium))
+                .font(.raycast(size: 12, weight: .medium))
                 .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)

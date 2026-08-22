@@ -23,7 +23,7 @@ struct WorkflowRowView: View {
                         )
 
                     Image(systemName: type.icon)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.raycast(size: 15, weight: .semibold))
                         .foregroundStyle(enabled ? Color.primary.opacity(0.82) : Color.secondary.opacity(0.45))
                 }
                 .frame(width: 42, height: 42)
@@ -31,7 +31,7 @@ struct WorkflowRowView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Text(customName ?? type.displayName)
-                            .font(.system(size: 13.5, weight: .bold, design: .rounded))
+                            .font(.raycast(size: 13.5, weight: .bold))
                             .foregroundStyle(enabled ? .primary : .tertiary)
                             .lineLimit(1)
 
@@ -43,7 +43,7 @@ struct WorkflowRowView: View {
                     }
 
                     Text(subtitle ?? type.subtitle)
-                        .font(.system(size: 10.7, weight: .medium))
+                        .font(.raycast(size: 10.7, weight: .medium))
                         .foregroundStyle(enabled ? .secondary : .quaternary)
                         .lineLimit(1)
                 }
@@ -52,7 +52,7 @@ struct WorkflowRowView: View {
 
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("Shortcut")
-                        .font(.system(size: 8.5, weight: .bold))
+                        .font(.raycast(size: 8.5, weight: .bold))
                         .tracking(0.35)
                         .foregroundStyle(enabled ? .tertiary : .quaternary)
                     HotkeyBadge(label: hotkeyLabel ?? type.hotkeyLabel, enabled: enabled, accent: accent)
@@ -84,7 +84,7 @@ struct WorkflowRowView: View {
 
     private func miniPill(_ text: String, color: Color) -> some View {
         Text(text)
-            .font(.system(size: 7.8, weight: .black))
+            .font(.raycast(size: 7.8, weight: .black))
             .tracking(0.45)
             .foregroundStyle(color)
             .padding(.horizontal, 5)
@@ -102,7 +102,8 @@ struct WorkflowRowView: View {
     }
 
     private var cardStroke: Color {
-        colorScheme == .dark ? Color.white.opacity(0.10) : Color.white.opacity(0.74)
+        if isHovered && enabled { return .raycastRed.opacity(0.30) }
+        return colorScheme == .dark ? Color.white.opacity(0.10) : Color.white.opacity(0.74)
     }
 }
 
@@ -118,7 +119,7 @@ struct HotkeyBadge: View {
         HStack(spacing: 3) {
             ForEach(label.components(separatedBy: " + "), id: \.self) { key in
                 Text(key)
-                    .font(.system(size: 10.5, weight: .black, design: .rounded))
+                    .font(.raycastMono(size: 10.5, weight: .semibold))
                     .foregroundStyle(keyTextColor)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)

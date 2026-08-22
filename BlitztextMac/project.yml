@@ -34,6 +34,10 @@ targets:
           - AppIcon.icns
           - Info.plist
           - BlitztextMac.entitlements
+          - Fonts
+      - path: Resources/Fonts
+        type: folder
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.claudeflaig.whispy

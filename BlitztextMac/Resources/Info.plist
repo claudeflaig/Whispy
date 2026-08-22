@@ -18,6 +18,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>ATSApplicationFontsPath</key>
+	<string>Fonts</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Whispy benötigt Mikrofon-Zugriff für die Sprach-Transkription.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
