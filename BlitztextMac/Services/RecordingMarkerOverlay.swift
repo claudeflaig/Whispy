@@ -61,7 +61,10 @@ final class RecordingMarkerOverlay {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.model.audioLevel = self.audioLevelProvider?() ?? 0
-                self.model.transcript = self.transcriptProvider?() ?? ""
+                let transcript = self.transcriptProvider?() ?? ""
+                if transcript != self.model.transcript {
+                    self.model.transcript = transcript
+                }
                 self.updatePosition()
             }
         }
@@ -231,11 +234,11 @@ private struct RecordingMarkerView: View {
                 Text(model.transcript.isEmpty ? "Ich höre zu …" : latestTranscriptExcerpt)
                     .font(.system(size: 12.5, weight: .medium, design: .rounded))
                     .foregroundStyle(Color.white.opacity(model.transcript.isEmpty ? 0.58 : 0.92))
-                    .lineLimit(2)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .animation(.easeOut(duration: 0.12), value: model.transcript)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+                    .frame(width: 240, alignment: .leading)
             }
+            .frame(width: 240, alignment: .leading)
         }
         .padding(.horizontal, 15)
         .padding(.vertical, 11)
@@ -261,7 +264,7 @@ private struct RecordingMarkerView: View {
                 Circle()
                     .fill(Color.red.opacity(0.18 + Double(model.audioLevel) * 0.28))
                     .frame(width: ringSize, height: ringSize)
-                    .scaleEffect(pulse ? 1.18 : 0.88)
+                    .scaleEffect(pulse ? 1.12 : 0.92)
                     .animation(.easeInOut(duration: 0.62).repeatForever(autoreverses: true), value: pulse)
 
                 Circle()
@@ -269,6 +272,7 @@ private struct RecordingMarkerView: View {
                     .frame(width: dotSize, height: dotSize)
                     .shadow(color: .red.opacity(0.55), radius: 7)
             }
+            .frame(width: 30, height: 30)
 
             HStack(spacing: 2) {
                 ForEach(0..<barCount, id: \.self) { index in
@@ -279,11 +283,12 @@ private struct RecordingMarkerView: View {
             }
             .frame(height: 28)
         }
+        .frame(width: barCount == 7 ? 70 : 62, height: 30, alignment: .leading)
     }
 
     private var latestTranscriptExcerpt: String {
         let transcript = model.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-        let maximumCharacters = 150
+        let maximumCharacters = 42
         guard transcript.count > maximumCharacters else { return transcript }
 
         let rawSuffix = String(transcript.suffix(maximumCharacters))
