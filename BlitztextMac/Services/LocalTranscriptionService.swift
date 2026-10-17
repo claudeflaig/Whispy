@@ -20,6 +20,12 @@ struct LocalTranscriptionModel: Identifiable, Hashable {
         isInstalled ? "Installiert" : "Nicht installiert"
     }
 
+    /// Download size from the folder name, e.g. "626 MB".
+    var sizeLabel: String? {
+        guard let match = id.range(of: "[0-9]+MB$", options: .regularExpression) else { return nil }
+        return id[match].dropLast(2) + " MB"
+    }
+
     var shortDisplayName: String {
         if id.contains("small") {
             return "Whisper Small"
@@ -30,7 +36,7 @@ struct LocalTranscriptionModel: Identifiable, Hashable {
         if id.contains("tiny") {
             return "Whisper Tiny"
         }
-        if id.contains("turbo") {
+        if id.contains("v20240930") || id.contains("turbo") {
             return "Whisper Turbo"
         }
         if id.contains("large-v3") {
@@ -49,8 +55,13 @@ struct LocalTranscriptionModel: Identifiable, Hashable {
         if modelName.contains("tiny") {
             return "Whisper Tiny"
         }
-        if modelName.contains("turbo") {
-            return "Whisper Large v3 Turbo"
+        // OpenAI released Large v3 Turbo on 2024-09-30; Argmax's folder names carry that
+        // date. Their "_turbo" suffix is a decoding optimisation of the same weights, so
+        // it doesn't mean the Turbo model by itself.
+        if modelName.contains("large-v3-v20240930") {
+            return modelName.contains("_turbo")
+                ? "Whisper Large v3 Turbo (Argmax-optimiert)"
+                : "Whisper Large v3 Turbo"
         }
         if modelName.contains("large-v3") {
             return "Whisper Large v3"
@@ -82,14 +93,19 @@ enum LocalTranscriptionError: LocalizedError {
 actor LocalTranscriptionService {
     static let shared = LocalTranscriptionService()
 
+    /// Whisper Large v3 Turbo (4 decoder layers), despite the name.
     static let defaultModelName = "openai_whisper-large-v3-v20240930_626MB"
+    /// The same Turbo weights with Argmax's decoding optimisation. No longer offered, but
+    /// installations that have it keep using it.
     static let fastModelName = "openai_whisper-large-v3-v20240930_turbo_632MB"
     static let recommendedFastModelName = "openai_whisper-small_216MB"
+    /// The full Whisper Large v3 (32 decoder layers): most accurate, slowest.
+    static let fullLargeModelName = "openai_whisper-large-v3_947MB"
     static let modelRepo = "argmaxinc/whisperkit-coreml"
     static let supportedModelNames = [
         recommendedFastModelName,
-        fastModelName,
-        defaultModelName
+        defaultModelName,
+        fullLargeModelName
     ]
     static let modelPageURL = URL(
         string: "https://huggingface.co/argmaxinc/whisperkit-coreml/tree/main/openai_whisper-large-v3-v20240930_626MB"

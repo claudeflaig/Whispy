@@ -88,6 +88,7 @@ final class AppState {
         KeychainService.isConfigured
             || AppleSpeechSessionFactory.isAvailable
             || !LocalTranscriptionService.installedModels().isEmpty
+            || (ParakeetTranscriptionService.isSupported && ParakeetTranscriptionService.isInstalled)
     }
     var shouldShowOnboarding: Bool {
         !isConfigured && !appSettings.hasSeenOnboarding
@@ -119,6 +120,13 @@ final class AppState {
 
     private func scheduleAppleSpeechPrewarm() {
         applePrewarmRequestTask?.cancel()
+        if effectiveLocalTranscriptionEngine == .parakeet, ParakeetTranscriptionService.isInstalled {
+            // Loading Parakeet compiles it for the Neural Engine; do that before the first dictation.
+            Task.detached(priority: .utility) {
+                try? await ParakeetTranscriptionService.shared.prepare()
+            }
+            return
+        }
         guard effectiveLocalTranscriptionEngine == .appleSpeech else { return }
 
         let language = transcriptionSettings.language
@@ -160,6 +168,10 @@ final class AppState {
             switch effectiveLocalTranscriptionEngine {
             case .appleSpeech:
                 return "Apple Speech · Live · On-Device."
+            case .parakeet:
+                return ParakeetTranscriptionService.isInstalled
+                    ? "\(ParakeetTranscriptionService.displayName) · On-Device."
+                    : "Parakeet-Modell fehlt."
             case .whisperKit:
                 let modelName = selectedLocalModelName
                 return LocalTranscriptionService.isModelInstalled(modelName)
@@ -172,20 +184,26 @@ final class AppState {
     }
 
     var availableLocalTranscriptionEngines: [LocalTranscriptionEngine] {
-        AppleSpeechSessionFactory.isAvailable ? [.appleSpeech, .whisperKit] : [.whisperKit]
+        LocalTranscriptionEngine.allCases.filter(isEngineSupported)
     }
 
     var effectiveLocalTranscriptionEngine: LocalTranscriptionEngine {
-        if appSettings.selectedLocalTranscriptionEngine == .appleSpeech,
-           !AppleSpeechSessionFactory.isAvailable {
-            return .whisperKit
+        let selected = appSettings.selectedLocalTranscriptionEngine
+        return isEngineSupported(selected) ? selected : .whisperKit
+    }
+
+    private func isEngineSupported(_ engine: LocalTranscriptionEngine) -> Bool {
+        switch engine {
+        case .appleSpeech: return AppleSpeechSessionFactory.isAvailable
+        case .parakeet: return ParakeetTranscriptionService.isSupported
+        case .whisperKit: return true
         }
-        return appSettings.selectedLocalTranscriptionEngine
     }
 
     var selectedLocalEngineDisplayName: String {
         switch effectiveLocalTranscriptionEngine {
         case .appleSpeech: return "Apple Speech · Live"
+        case .parakeet: return ParakeetTranscriptionService.displayName
         case .whisperKit: return selectedLocalModelDisplayName
         }
     }
@@ -258,7 +276,7 @@ final class AppState {
                 type: .localTranscription,
                 customTerms: textImprovementSettings.customTerms,
                 language: transcriptionSettings.language,
-                backend: effectiveLocalTranscriptionEngine == .appleSpeech ? .appleSpeech : .local,
+                backend: localTranscriptionBackend,
                 localModelName: selectedLocalModelName
             )
             launch(workflow)
@@ -315,11 +333,20 @@ final class AppState {
         )
     }
 
+    private var localTranscriptionBackend: TranscriptionBackend {
+        switch effectiveLocalTranscriptionEngine {
+        case .appleSpeech: return .appleSpeech
+        case .parakeet: return .parakeet
+        case .whisperKit: return .local
+        }
+    }
+
     func isWorkflowAvailable(_ type: WorkflowType) -> Bool {
         switch type {
         case .localTranscription:
             switch effectiveLocalTranscriptionEngine {
             case .appleSpeech: return AppleSpeechSessionFactory.isAvailable
+            case .parakeet: return ParakeetTranscriptionService.isInstalled
             case .whisperKit: return selectedLocalModelIsInstalled
             }
         case .transcription:
@@ -358,14 +385,50 @@ final class AppState {
 
     func enableSecureLocalMode() {
         appSettings.secureLocalModeEnabled = true
-        if effectiveLocalTranscriptionEngine == .whisperKit,
-           !selectedLocalModelIsInstalled {
+        switch effectiveLocalTranscriptionEngine {
+        case .whisperKit where !selectedLocalModelIsInstalled,
+             .parakeet where !ParakeetTranscriptionService.isInstalled:
             installSelectedLocalModel()
+        default:
+            break
+        }
+    }
+
+    func installParakeetModel() {
+        guard !isDownloadingLocalModel else { return }
+        localModelDownloadProgress = 0
+        localModelDownloadStatusText = "Download startet..."
+        localModelDownloadErrorText = nil
+
+        Task {
+            do {
+                try await ParakeetTranscriptionService.shared.downloadAndInstall { [weak self] progress in
+                    Task { @MainActor [weak self] in
+                        guard let self else { return }
+                        let clampedProgress = min(max(progress, 0), 1)
+                        self.localModelDownloadProgress = clampedProgress
+                        self.localModelDownloadStatusText = "Download \(Int(clampedProgress * 100)) %"
+                    }
+                }
+                localModelDownloadStatusText = "Modell wird für die Neural Engine vorbereitet ..."
+                try await ParakeetTranscriptionService.shared.prepare()
+                appSettings.secureLocalModeEnabled = true
+                localModelDownloadProgress = nil
+                localModelDownloadStatusText = "\(ParakeetTranscriptionService.displayName) ist installiert."
+            } catch {
+                localModelDownloadProgress = nil
+                localModelDownloadStatusText = nil
+                localModelDownloadErrorText = error.localizedDescription
+            }
         }
     }
 
     func installSelectedLocalModel() {
         guard !isDownloadingLocalModel else { return }
+        if effectiveLocalTranscriptionEngine == .parakeet {
+            installParakeetModel()
+            return
+        }
 
         let modelName = selectedLocalModelName
         localModelDownloadProgress = 0

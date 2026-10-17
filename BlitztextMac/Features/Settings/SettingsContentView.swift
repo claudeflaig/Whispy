@@ -713,10 +713,8 @@ struct CustomizeSettingsView: View {
                     isOn: $appState.appSettings.secureLocalModeEnabled
                 )
                     .onChange(of: appState.appSettings.secureLocalModeEnabled) { _, newValue in
-                        if newValue,
-                           appState.effectiveLocalTranscriptionEngine == .whisperKit,
-                           !appState.selectedLocalModelIsInstalled {
-                            appState.installSelectedLocalModel()
+                        if newValue {
+                            appState.enableSecureLocalMode()
                         }
                     }
 
@@ -753,12 +751,14 @@ struct CustomizeSettingsView: View {
                     }
                     .padding(10)
                     .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                } else if appState.effectiveLocalTranscriptionEngine == .parakeet {
+                    parakeetSection
                 } else {
                     HStack(spacing: 6) {
                         Image(systemName: appState.selectedLocalModelIsInstalled ? "checkmark.circle.fill" : "arrow.down.circle.fill")
                             .font(.raycast(size: 11, weight: .semibold))
                             .foregroundStyle(appState.selectedLocalModelIsInstalled ? .green : .blue)
-                        Text(appState.selectedLocalModelIsInstalled ? "\(installedLocalModels.count) lokales WhisperKit-Modell installiert." : "Das ausgewählte Modell wird beim Installieren lokal gespeichert.")
+                        Text(appState.selectedLocalModelIsInstalled ? "\(installedLocalModels.count) lokale\(installedLocalModels.count == 1 ? "s" : "") WhisperKit-Modell\(installedLocalModels.count == 1 ? "" : "e") installiert." : "Das ausgewählte Modell wird beim Installieren lokal gespeichert.")
                             .font(.raycast(size: 10.5))
                             .foregroundStyle(.secondary)
                         Spacer()
@@ -774,7 +774,7 @@ struct CustomizeSettingsView: View {
                             set: { appState.appSettings.selectedLocalTranscriptionModelName = $0 }
                         )) {
                             ForEach(localModelOptions) { model in
-                                Text("\(model.displayName) · \(model.installStateLabel)").tag(model.id)
+                                Text([model.displayName, model.sizeLabel, model.installStateLabel].compactMap { $0 }.joined(separator: " · ")).tag(model.id)
                             }
                         }
                         .labelsHidden()
@@ -1141,6 +1141,60 @@ struct CustomizeSettingsView: View {
     }
 
     private func workflowAccentColor(_ type: WorkflowType) -> Color { .secondary }
+
+    private var parakeetSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "bolt.fill")
+                    .font(.raycast(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("\(ParakeetTranscriptionService.displayName) · Neural Engine")
+                        .font(.raycast(size: 11.5, weight: .semibold))
+                    Text("NVIDIAs Parakeet in der nachtrainierten Ultra-Fassung, 25 europäische Sprachen. Für Deutsch so genau wie Whisper Large v3, aber ein Vielfaches schneller. Transkribiert nach dem Loslassen, ohne Live-Vorschau.")
+                        .font(.raycast(size: 10.5))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(10)
+            .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            if let progress = appState.localModelDownloadProgress {
+                VStack(alignment: .leading, spacing: 4) {
+                    ProgressView(value: progress)
+                    Text(appState.localModelDownloadStatusText ?? "Modell wird geladen...")
+                        .font(.raycast(size: 10.5))
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                HStack(spacing: 10) {
+                    Button(ParakeetTranscriptionService.isInstalled
+                           ? "\(ParakeetTranscriptionService.displayName) ist installiert"
+                           : "\(ParakeetTranscriptionService.displayName) installieren (\(ParakeetTranscriptionService.downloadSizeLabel))") {
+                        appState.installParakeetModel()
+                    }
+                    .controlSize(.small)
+                    .disabled(ParakeetTranscriptionService.isInstalled)
+
+                    Link("Modellseite", destination: ParakeetTranscriptionService.modelPageURL)
+                        .font(.raycast(size: 10.5, weight: .medium))
+                }
+                if let status = appState.localModelDownloadStatusText {
+                    Text(status)
+                        .font(.raycast(size: 10.5))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if let errorText = appState.localModelDownloadErrorText {
+                Text(errorText)
+                    .font(.raycast(size: 10.5))
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
 
     private var filteredHistory: [DictationHistoryEntry] {
         let query = historySearch.trimmingCharacters(in: .whitespaces)

@@ -73,6 +73,7 @@ final class TranscriptionWorkflow: Workflow {
             return
         }
 
+        // Remote and Parakeet record the whole utterance and transcribe it after release.
         recorder.startRecording()
         if let error = recorder.errorMessage {
             phase = .error(error)
@@ -463,7 +464,7 @@ final class TranscriptionWorkflow: Workflow {
             return
         }
 
-        phase = .running(backend == .local ? "Wird lokal transkribiert ..." : "Wird transkribiert ...")
+        phase = .running(backend == .remote && !forceLocal ? "Wird transkribiert ..." : "Wird lokal transkribiert ...")
         let recordingDuration = recorder.lastRecordingDuration
         let vocabularyHints = recordingDuration >= 0.9 ? customTerms : []
         let requestLanguage = language
@@ -490,6 +491,11 @@ final class TranscriptionWorkflow: Workflow {
                         audioURL: url,
                         language: requestLanguage,
                         modelName: localModelName
+                    )
+                case .parakeet:
+                    text = try await ParakeetTranscriptionService.shared.transcribe(
+                        audioURL: url,
+                        language: requestLanguage
                     )
                 case .appleSpeech:
                     throw AppleSpeechTranscriptionError.unavailable

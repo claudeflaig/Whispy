@@ -295,6 +295,7 @@ struct DictationHistoryEntry: Codable, Identifiable, Hashable {
 
 enum LocalTranscriptionEngine: String, Codable, CaseIterable, Identifiable {
     case appleSpeech
+    case parakeet
     case whisperKit
 
     var id: String { rawValue }
@@ -302,6 +303,7 @@ enum LocalTranscriptionEngine: String, Codable, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .appleSpeech: return "Apple Speech"
+        case .parakeet: return "Parakeet"
         case .whisperKit: return "WhisperKit"
         }
     }
@@ -309,6 +311,7 @@ enum LocalTranscriptionEngine: String, Codable, CaseIterable, Identifiable {
     var detail: String {
         switch self {
         case .appleSpeech: return "Live, lokal und von macOS verwaltet"
+        case .parakeet: return "NVIDIA Parakeet, sehr schnell auf der Neural Engine"
         case .whisperKit: return "Lokales Whisper-Modell"
         }
     }
@@ -444,6 +447,7 @@ enum TranscriptionBackend: String, Codable {
     case remote
     case local
     case appleSpeech
+    case parakeet
 }
 
 // MARK: - Workflow Settings
