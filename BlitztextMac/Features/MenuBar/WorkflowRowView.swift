@@ -16,7 +16,7 @@ struct WorkflowRowView: View {
             HStack(spacing: 10) {
                 Image(systemName: type.icon)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(isHovered && enabled ? Color.raycastRed : .secondary)
+                    .foregroundStyle(isHovered && enabled ? Color.accentColor : .secondary)
                     .frame(width: 28, height: 28)
                     .background(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -74,6 +74,11 @@ struct HotkeyBadge: View {
                     )
             }
         }
+    }
+
+    /// "fn + Shift" as "fn ⇧", the way macOS menus show shortcuts.
+    static func glyphs(for label: String) -> String {
+        label.components(separatedBy: " + ").map(symbol(for:)).joined(separator: " ")
     }
 
     /// Mac keyboard glyphs, as in system menus.

@@ -15,7 +15,6 @@ struct MenuBarView: View {
             }
         }
         .frame(width: 360)
-        .tint(.raycastRed)
         .animation(.easeInOut(duration: 0.2), value: appState.page)
     }
 
@@ -58,7 +57,7 @@ struct MenuBarView: View {
         HStack(spacing: 10) {
             Image(systemName: "waveform")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.raycastRed)
+                .foregroundStyle(Color.accentColor)
                 .frame(width: 32, height: 32)
                 .glassCard(cornerRadius: 10)
 

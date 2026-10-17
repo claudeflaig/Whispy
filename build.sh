@@ -139,11 +139,14 @@ sign_app() {
             "$stage/Whispy.app"
     fi
 
+    # Prüfen, solange die App noch außerhalb von iCloud liegt: iCloud hängt
+    # im Projektordner sofort wieder Attribute an, die --strict ablehnt.
+    codesign --verify --deep --strict "$stage/Whispy.app"
+    echo "   Signatur ok: $(codesign -dvv "$stage/Whispy.app" 2>&1 | grep -E "^Authority=" | head -1 || echo 'ad hoc')"
+
     rm -rf "$app_path"
-    ditto "$stage/Whispy.app" "$app_path"
+    ditto --noextattr --norsrc "$stage/Whispy.app" "$app_path"
     rm -rf "$stage"
-    codesign --verify --deep --strict "$app_path"
-    echo "   Signatur ok: $(codesign -dvv "$app_path" 2>&1 | grep -E "^Authority=" | head -1 || echo 'ad hoc')"
 }
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

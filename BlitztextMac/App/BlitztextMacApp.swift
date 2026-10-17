@@ -47,6 +47,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
         appState.hotkeyService.start()
 
+        if ProcessInfo.processInfo.arguments.contains("--open-settings") {
+            DispatchQueue.main.async { [weak self] in self?.handleOpenSettingsWindow() }
+        }
+
         // Listen for popover dismiss requests (from auto-paste)
         NotificationCenter.default.addObserver(
             self,
@@ -91,6 +95,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         window.title = "Whispy Einstellungen"
         window.titlebarAppearsTransparent = true
         window.toolbarStyle = .unified
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.contentViewController = hostingController
         window.setContentSize(NSSize(width: 880, height: 640))
         window.minSize = NSSize(width: 780, height: 560)

@@ -24,6 +24,18 @@ enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
         }
     }
 
+    var subtitle: String {
+        switch self {
+        case .general: return "Welche Engine deine Stimme in Text verwandelt."
+        case .behavior: return "Was beim Aufnehmen und Einfügen passiert."
+        case .hotkeys: return "Klicke auf ein Kürzel und drücke die neue Kombination."
+        case .workflows: return "Stil und Anweisungen für die KI-Workflows."
+        case .context: return "Whispy passt den Stil an die App an, in die du diktierst."
+        case .history: return "Deine letzten \(AppState.historyLimit) Diktate, nur auf diesem Mac."
+        case .access: return "Rechte, OpenAI-Key und Installation."
+        }
+    }
+
     var icon: String {
         switch self {
         case .general: return "waveform"
@@ -39,11 +51,15 @@ enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
 
 struct SettingsContentView: View {
     @Bindable var appState: AppState
-    @State private var selection: SettingsPane? = .general
+    // Remembers the last pane; `-WhispySettingsPane hotkeys` at launch opens a given one.
+    @AppStorage("WhispySettingsPane") private var selection: SettingsPane = .general
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $selection) {
+            List(selection: Binding<SettingsPane?>(
+                get: { selection },
+                set: { if let pane = $0 { selection = pane } }
+            )) {
                 ForEach(SettingsPane.allCases) { pane in
                     Label {
                         HStack {
@@ -59,50 +75,103 @@ struct SettingsContentView: View {
                     .tag(pane)
                 }
             }
-            .navigationSplitViewColumnWidth(min: 190, ideal: 200, max: 240)
+            .navigationSplitViewColumnWidth(min: 190, ideal: 210, max: 250)
         } detail: {
-            let pane = selection ?? .general
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(pane.title)
-                        .font(.raycast(size: 22, weight: .bold))
-                        .padding(.horizontal, 16)
-                        .padding(.top, 4)
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(selection.title)
+                            .font(.raycast(size: 26, weight: .bold))
+                        Text(selection.subtitle)
+                            .font(.raycast(size: 13))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 4)
 
-                    if pane == .access {
+                    if selection == .access {
                         AccessSettingsView(appState: appState)
                     } else {
-                        CustomizeSettingsView(appState: appState, pane: pane)
+                        CustomizeSettingsView(appState: appState, pane: selection)
                     }
                 }
-                .frame(maxWidth: 680, alignment: .topLeading)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 16)
+                .frame(maxWidth: 640, alignment: .topLeading)
+                .padding(.horizontal, 28)
+                .padding(.top, 8)
+                .padding(.bottom, 28)
                 .frame(maxWidth: .infinity, alignment: .top)
             }
-            .navigationTitle(pane.title)
+            .scrollContentBackground(.hidden)
+            .background(FrostedWindowBackground().ignoresSafeArea())
+            .hidingWindowTitle()
         }
         .frame(minWidth: 780, minHeight: 560)
-        .tint(.raycastRed)
         .onAppear {
             appState.refreshAccessibilityPermission()
-            if !appState.accessibilityPermissionGranted || !appState.isConfigured {
+            // The orange dot flags missing rights; only a Mac that cannot dictate at all jumps there.
+            if !appState.isConfigured {
                 selection = .access
             }
         }
     }
 }
 
-// MARK: - Section Label (quiet style)
+/// The desktop shows through the detail column, blurred, like Control Center.
+private struct FrostedWindowBackground: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .sidebar
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+}
+
+private extension View {
+    @ViewBuilder
+    func hidingWindowTitle() -> some View {
+        if #available(macOS 15.0, *) {
+            self.toolbar(removing: .title)
+        } else {
+            self
+        }
+    }
+}
 
 private struct SectionLabel: View {
     let text: String
 
     var body: some View {
-        Text(text.uppercased())
-            .font(.raycast(size: 10.5, weight: .semibold))
-            .tracking(0.45)
+        Text(text)
+            .font(.raycast(size: 13.5, weight: .semibold))
+            .foregroundStyle(.primary)
+    }
+}
+
+/// Settings icon tile, like System Settings: a small rounded square.
+private struct SettingsIcon: View {
+    let systemName: String
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.system(size: 13, weight: .medium))
             .foregroundStyle(.secondary)
+            .frame(width: 30, height: 30)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.primary.opacity(0.07))
+            )
+    }
+}
+
+extension View {
+    /// One frosted-glass group in the settings detail column.
+    func settingsSection() -> some View {
+        self
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassCard(cornerRadius: 22)
     }
 }
 
@@ -115,23 +184,13 @@ private struct SettingsCard<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            if !title.isEmpty {
             HStack(alignment: .top, spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.primary.opacity(0.06))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.7)
-                        )
-                    Image(systemName: systemImage)
-                        .font(.raycast(size: 14, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                }
-                .frame(width: 38, height: 38)
+                SettingsIcon(systemName: systemImage)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.raycast(size: 15, weight: .bold))
+                        .font(.raycast(size: 13.5, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                     if let subtitle {
@@ -144,12 +203,11 @@ private struct SettingsCard<Content: View>: View {
 
                 Spacer(minLength: 0)
             }
+            }
 
             content
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(cornerRadius: 18)
+        .settingsSection()
     }
 }
 
@@ -178,7 +236,7 @@ struct AccessSettingsView: View {
     @FocusState private var focusedField: FieldFocus?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 8) {
                 SectionLabel(text: "Berechtigungen")
 
@@ -212,6 +270,7 @@ struct AccessSettingsView: View {
                     .glassButtonStyle()
                 }
             }
+            .settingsSection()
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
@@ -234,11 +293,12 @@ struct AccessSettingsView: View {
                             .font(.raycastMono(size: 11))
                             .foregroundStyle(.secondary)
                     }
-                    .padding(8)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color(nsColor: .controlBackgroundColor))
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.primary.opacity(0.07))
                     )
                 } else {
                     HStack(spacing: 8) {
@@ -259,6 +319,7 @@ struct AccessSettingsView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .settingsSection()
 
             VStack(alignment: .leading, spacing: 8) {
                 SectionLabel(text: "Installation")
@@ -312,6 +373,7 @@ struct AccessSettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .settingsSection()
 
             VStack(alignment: .leading, spacing: 8) {
                 SectionLabel(text: "Updates")
@@ -332,6 +394,7 @@ struct AccessSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .settingsSection()
 
             // Launch at Login
             VStack(alignment: .leading, spacing: 8) {
@@ -352,6 +415,7 @@ struct AccessSettingsView: View {
                     )
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .settingsSection()
 
             if let saveErrorText {
                 Text(saveErrorText)
@@ -378,6 +442,7 @@ struct AccessSettingsView: View {
                             .strokeBorder(Color.primary.opacity(0.05), lineWidth: 0.5)
                     )
             }
+            .settingsSection()
 
             VStack(alignment: .leading, spacing: 8) {
                 SectionLabel(text: "Sauber Entfernen")
@@ -429,6 +494,7 @@ struct AccessSettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .settingsSection()
 
             // Save button (right-aligned, text only)
             HStack {
@@ -454,7 +520,6 @@ struct AccessSettingsView: View {
                 .animation(.easeInOut(duration: 0.2), value: saved)
             }
         }
-        .padding(16)
         .onAppear {
             launchAtLoginService.refresh()
             refreshInstallState()
@@ -627,15 +692,16 @@ struct CustomizeSettingsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 14) {
 
             if pane == .general {
 // MARK: Lokaler Modus
             VStack(alignment: .leading, spacing: 10) {
-                SectionLabel(text: "Sicherer Lokaler Modus")
-
-                Toggle("Sicherer Lokaler Modus", isOn: $appState.appSettings.secureLocalModeEnabled)
-                    .toggleStyle(.switch)
+                behaviorToggle(
+                    "Sicherer Lokaler Modus",
+                    detail: "Diktate bleiben auf diesem Mac. Kein Audio verlässt das Gerät.",
+                    isOn: $appState.appSettings.secureLocalModeEnabled
+                )
                     .onChange(of: appState.appSettings.secureLocalModeEnabled) { _, newValue in
                         if newValue,
                            appState.effectiveLocalTranscriptionEngine == .whisperKit,
@@ -644,18 +710,21 @@ struct CustomizeSettingsView: View {
                         }
                     }
 
+                Divider().opacity(0.5)
+
                 HStack(spacing: 8) {
-                    Text("Transkriptions-Engine")
-                        .font(.raycast(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
+                    Text("Lokale Engine")
+                        .font(.raycast(size: 12.5, weight: .semibold))
+
+                    Spacer()
 
                     Picker("", selection: $appState.appSettings.selectedLocalTranscriptionEngine) {
                         ForEach(appState.availableLocalTranscriptionEngines) { engine in
-                            Text("\(engine.displayName) · \(engine.detail)").tag(engine)
+                            Text(engine.displayName).tag(engine)
                         }
                     }
                     .labelsHidden()
-                    .controlSize(.small)
+                    .fixedSize()
                 }
 
                 if appState.effectiveLocalTranscriptionEngine == .appleSpeech {
@@ -731,18 +800,22 @@ struct CustomizeSettingsView: View {
                     }
                 }
             }
+            .settingsSection()
             }
 
             if pane == .context {
 // MARK: App-Kontext
             SettingsCard(
-                title: "App-Kontext",
-                subtitle: "Whispy erkennt die Ziel-App und nutzt Kategorie und Stil als Kontext. Wähle Apps aus einer Liste — keine Bundle-IDs nötig.",
+                title: "",
+                subtitle: nil,
                 systemImage: "app.connected.to.app.below.fill",
                 accent: .green
             ) {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(AppContextRule.Category.allCases) { category in
+                        if category != AppContextRule.Category.allCases.first {
+                            Divider().opacity(0.5)
+                        }
                         AppContextRuleRow(rule: appContextRuleBinding(for: category), availableApps: availableAppOptions)
                     }
                 }
@@ -752,8 +825,8 @@ struct CustomizeSettingsView: View {
             if pane == .history {
 // MARK: Verlauf
             SettingsCard(
-                title: "Verlauf",
-                subtitle: "Die letzten \(AppState.historyLimit) Diktate bleiben lokal auf diesem Mac. Kopieren oder erneut einfügen.",
+                title: "",
+                subtitle: nil,
                 systemImage: "clock.arrow.circlepath",
                 accent: .blue
             ) {
@@ -767,6 +840,9 @@ struct CustomizeSettingsView: View {
                             .textFieldStyle(.roundedBorder)
 
                         ForEach(filteredHistory) { entry in
+                            if entry.id != filteredHistory.first?.id {
+                                Divider().opacity(0.5)
+                            }
                             HistoryEntryRow(entry: entry) {
                                 appState.copyToClipboard(entry.finalText)
                             } pasteAction: {
@@ -793,8 +869,8 @@ struct CustomizeSettingsView: View {
             if pane == .hotkeys {
 // MARK: Tastenkuerzel
             SettingsCard(
-                title: "Tastenkürzel",
-                subtitle: "Klicke auf ein Kürzel und drücke anschließend deine gewünschte Tastenkombination.",
+                title: "",
+                subtitle: nil,
                 systemImage: "keyboard",
                 accent: .purple
             ) {
@@ -817,6 +893,9 @@ struct CustomizeSettingsView: View {
                     )
 
                     ForEach(WorkflowType.userVisibleHotkeyCases) { type in
+                        if type != WorkflowType.userVisibleHotkeyCases.first {
+                            Divider().opacity(0.5)
+                        }
                         HotkeyWorkflowRow(
                             title: appState.displayName(for: type),
                             subtitle: appState.workflowSubtitle(for: type),
@@ -870,7 +949,7 @@ struct CustomizeSettingsView: View {
                         Label("Zurücksetzen", systemImage: "arrow.counterclockwise")
                             .font(.raycast(size: 11, weight: .medium))
                     }
-                    .buttonStyle(SoftPillButtonStyle())
+                    .glassButtonStyle()
                 }
             }
             }
@@ -930,6 +1009,7 @@ struct CustomizeSettingsView: View {
                         .font(.raycast(size: 11))
                 }
             }
+            .settingsSection()
 
             // MARK: Whispy $%&!
             VStack(alignment: .leading, spacing: 10) {
@@ -959,6 +1039,7 @@ struct CustomizeSettingsView: View {
                         }
                 }
             }
+            .settingsSection()
 
             // MARK: Whispy :)
             VStack(alignment: .leading, spacing: 10) {
@@ -977,6 +1058,7 @@ struct CustomizeSettingsView: View {
                     .pickerStyle(.segmented)
                 }
             }
+            .settingsSection()
 
             // MARK: Eigennamen
             VStack(alignment: .leading, spacing: 10) {
@@ -1029,13 +1111,13 @@ struct CustomizeSettingsView: View {
                     .disabled(newTerm.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
+            .settingsSection()
             }
 
             if pane == .behavior {
                 behaviorSection
             }
         }
-        .padding(16)
         .onAppear {
             availableAppOptions = AppContextAppOption.availableOptions()
         }
@@ -1198,6 +1280,24 @@ private struct AppContextAppOption: Identifiable, Hashable {
         .init(name: "Arc", bundleIdentifier: "company.thebrowser.Browser")
     ]
 
+    static func icon(for bundleIdentifier: String) -> NSImage {
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
+            return NSWorkspace.shared.icon(forFile: url.path)
+        }
+        return NSImage(systemSymbolName: "app.dashed", accessibilityDescription: nil) ?? NSImage()
+    }
+
+    /// The app's display name, or the last part of the bundle ID when it is not installed.
+    static func name(for bundleIdentifier: String) -> String {
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier),
+           let bundle = Bundle(url: url) {
+            return (bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
+                ?? (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String)
+                ?? url.deletingPathExtension().lastPathComponent
+        }
+        return bundleIdentifier.split(separator: ".").last.map { $0.capitalized } ?? bundleIdentifier
+    }
+
     static func availableOptions() -> [AppContextAppOption] {
         var options = defaultOptions
         let applicationDirectories = [
@@ -1234,7 +1334,7 @@ private struct AppContextRuleRow: View {
     private var selectedApps: [AppContextAppOption] {
         rule.bundleIdentifiers.map { identifier in
             availableApps.first { $0.bundleIdentifier == identifier }
-                ?? AppContextAppOption(name: identifier, bundleIdentifier: identifier)
+                ?? AppContextAppOption(name: AppContextAppOption.name(for: identifier), bundleIdentifier: identifier)
         }
     }
 
@@ -1245,22 +1345,10 @@ private struct AppContextRuleRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.primary.opacity(0.06))
-                    Image(systemName: rule.category.icon)
-                        .font(.raycast(size: 13, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                }
-                .frame(width: 34, height: 34)
+                SettingsIcon(systemName: rule.category.icon)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(rule.category.displayName)
-                        .font(.raycast(size: 12.8, weight: .bold))
-                    Text("Wähle Apps aus der Liste und lege den Schreibstil fest.")
-                        .font(.raycast(size: 10.2, weight: .medium))
-                        .foregroundStyle(.secondary)
-                }
+                Text(rule.category.displayName)
+                    .font(.raycast(size: 13, weight: .semibold))
 
                 Spacer()
 
@@ -1283,9 +1371,9 @@ private struct AppContextRuleRow: View {
                 FlowLayout(spacing: 6) {
                     ForEach(selectedApps) { app in
                         HStack(spacing: 5) {
-                            Image(systemName: "app.fill")
-                                .font(.raycast(size: 9, weight: .semibold))
-                                .foregroundStyle(.secondary)
+                            Image(nsImage: AppContextAppOption.icon(for: app.bundleIdentifier))
+                                .resizable()
+                                .frame(width: 16, height: 16)
                             Text(app.name)
                                 .font(.raycast(size: 10.5, weight: .semibold))
                                 .lineLimit(1)
@@ -1298,15 +1386,12 @@ private struct AppContextRuleRow: View {
                             }
                             .buttonStyle(SubtleButtonStyle())
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
+                        .padding(.leading, 5)
+                        .padding(.trailing, 9)
+                        .padding(.vertical, 4)
                         .background(
                             Capsule(style: .continuous)
-                                .fill(Color.primary.opacity(0.055))
-                        )
-                        .overlay(
-                            Capsule(style: .continuous)
-                                .strokeBorder(Color.primary.opacity(0.085), lineWidth: 0.6)
+                                .fill(Color.primary.opacity(0.07))
                         )
                     }
                 }
@@ -1327,12 +1412,12 @@ private struct AppContextRuleRow: View {
                 .controlSize(.small)
 
                 if !rule.bundleIdentifiers.isEmpty {
-                    Button("Leeren") {
+                    Button("Alle entfernen") {
                         rule.bundleIdentifiers.removeAll()
                     }
-                    .font(.raycast(size: 10.5, weight: .medium))
+                    .font(.raycast(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
-                    .glassButtonStyle()
+                    .buttonStyle(SubtleButtonStyle())
                 }
 
                 Spacer()
@@ -1342,15 +1427,7 @@ private struct AppContextRuleRow: View {
                     .foregroundStyle(.tertiary)
             }
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.primary.opacity(0.032))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.075), lineWidth: 0.7)
-        )
+        .padding(.vertical, 6)
     }
 }
 
@@ -1361,14 +1438,7 @@ private struct HistoryEntryRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(Color.primary.opacity(0.06))
-                Image(systemName: entry.workflowType.icon)
-                    .font(.raycast(size: 12, weight: .semibold))
-                    .foregroundStyle(.secondary)
-            }
-            .frame(width: 32, height: 32)
+            SettingsIcon(systemName: entry.workflowType.icon)
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
@@ -1396,24 +1466,22 @@ private struct HistoryEntryRow: View {
 
             Spacer(minLength: 8)
 
-            VStack(spacing: 5) {
-                Button("Kopieren", action: copyAction)
-                    .glassButtonStyle()
-                    .font(.raycast(size: 10, weight: .medium))
-                Button("Einfügen", action: pasteAction)
-                    .glassButtonStyle()
-                    .font(.raycast(size: 10, weight: .medium))
+            HStack(spacing: 6) {
+                Button(action: copyAction) {
+                    Image(systemName: "doc.on.doc")
+                        .frame(width: 16, height: 16)
+                }
+                .help("Kopieren")
+                .glassIconButtonStyle()
+                Button(action: pasteAction) {
+                    Image(systemName: "arrow.turn.down.left")
+                        .frame(width: 16, height: 16)
+                }
+                .help("Einfügen")
+                .glassIconButtonStyle()
             }
         }
-        .padding(11)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.primary.opacity(0.035))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.055), lineWidth: 0.6)
-        )
+        .padding(.vertical, 6)
     }
 }
 
@@ -1426,51 +1494,24 @@ private struct HotkeyWorkflowRow: View {
     let hotkeyLabel: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 11) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(Color.primary.opacity(0.06))
-                    Image(systemName: icon)
-                        .font(.raycast(size: 12, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                }
-                .frame(width: 32, height: 32)
+        HStack(spacing: 12) {
+            SettingsIcon(systemName: icon)
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(.raycast(size: 12.5, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    Text(subtitle)
-                        .font(.raycast(size: 10.8))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.raycast(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                Text(subtitle)
+                    .font(.raycast(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
 
-            HStack(spacing: 8) {
-                Text("Auslösen mit")
-                    .font(.raycast(size: 10.5, weight: .medium))
-                    .foregroundStyle(.tertiary)
-                Spacer(minLength: 12)
-                HotkeyComboPicker(combo: $combo, title: hotkeyLabel)
-            }
-            .padding(.leading, 43)
+            Spacer(minLength: 12)
+
+            HotkeyComboPicker(combo: $combo, title: hotkeyLabel)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 11)
-        .background(
-            RoundedRectangle(cornerRadius: 11, style: .continuous)
-                .fill(Color(nsColor: .windowBackgroundColor).opacity(0.58))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 11, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.045), lineWidth: 0.6)
-        )
+        .padding(.vertical, 4)
     }
 }
 
@@ -1495,37 +1536,42 @@ private struct HotkeyComboPicker: View {
                 startRecording()
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: isRecording ? "record.circle.fill" : "keyboard.badge.ellipsis")
-                        .font(.raycast(size: 10.5, weight: .semibold))
-                        .foregroundStyle(isRecording ? .red : .secondary)
-                    Text(isRecording ? "Kombination drücken …" : title)
+                    if isRecording {
+                        Image(systemName: "record.circle")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color.accentColor)
+                            .symbolEffect(.pulse)
+                    }
+                    Text(isRecording ? "Kombination drücken …" : HotkeyBadge.glyphs(for: title))
                         .font(.raycastMono(size: 11, weight: .medium))
                         .foregroundStyle(labelColor)
                         .lineLimit(1)
                 }
-                .padding(.horizontal, 10)
+                .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .frame(minWidth: 168, alignment: .center)
+                .frame(minWidth: 150, alignment: .center)
                 .background(
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(isRecording ? Color.red.opacity(0.10) : Color(nsColor: .controlBackgroundColor).opacity(0.92))
+                    Capsule(style: .continuous)
+                        .fill(isRecording ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.07))
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    Capsule(style: .continuous)
                         .strokeBorder(borderColor, lineWidth: 0.8)
                 )
+                .contentShape(Capsule())
             }
-            .glassButtonStyle()
+            .buttonStyle(SubtleButtonStyle())
             .fixedSize(horizontal: true, vertical: false)
 
             Button {
                 combo = HotkeyCombo()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.raycast(size: 13))
+                    .font(.system(size: 14))
                     .foregroundStyle(combo.isEmpty ? .quaternary : .tertiary)
             }
-            .glassButtonStyle()
+            .buttonStyle(SubtleButtonStyle())
+            .disabled(combo.isEmpty)
             .help("Kürzel löschen")
         }
         .onDisappear {
@@ -1534,13 +1580,13 @@ private struct HotkeyComboPicker: View {
     }
 
     private var labelColor: Color {
-        if isRecording { return .red }
-        return combo.isEmpty ? .orange : .secondary
+        if isRecording { return .accentColor }
+        return combo.isEmpty ? .orange : .primary
     }
 
     private var borderColor: Color {
-        if isRecording { return .red.opacity(0.45) }
-        return combo.isEmpty ? .orange.opacity(0.5) : .primary.opacity(0.05)
+        if isRecording { return .accentColor.opacity(0.6) }
+        return combo.isEmpty ? .orange.opacity(0.5) : .primary.opacity(0.08)
     }
 
     private func startRecording() {
