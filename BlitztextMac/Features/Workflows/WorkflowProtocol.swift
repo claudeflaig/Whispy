@@ -329,6 +329,8 @@ struct AppSettings: Codable {
     var mutesSystemAudioWhileRecording: Bool = false
     var appendsTrailingSpace: Bool = false
     var autoSubmitsAfterPaste: Bool = false
+    // Dictionary, modelled on FoxSay: whole-word replacements and filler-word removal.
+    var textReplacementRules: [TextReplacementRule] = TextReplacementRule.defaults
 
     init(
         hotkeyMode: HotkeyMode = .hold,
@@ -364,6 +366,7 @@ struct AppSettings: Codable {
         case mutesSystemAudioWhileRecording
         case appendsTrailingSpace
         case autoSubmitsAfterPaste
+        case textReplacementRules
     }
 
     init(from decoder: Decoder) throws {
@@ -398,6 +401,8 @@ struct AppSettings: Codable {
         mutesSystemAudioWhileRecording = try container.decodeIfPresent(Bool.self, forKey: .mutesSystemAudioWhileRecording) ?? false
         appendsTrailingSpace = try container.decodeIfPresent(Bool.self, forKey: .appendsTrailingSpace) ?? false
         autoSubmitsAfterPaste = try container.decodeIfPresent(Bool.self, forKey: .autoSubmitsAfterPaste) ?? false
+        textReplacementRules = try container.decodeIfPresent([TextReplacementRule].self, forKey: .textReplacementRules)
+            ?? TextReplacementRule.defaults
     }
 
     static func mergedContextRules(_ rules: [AppContextRule]) -> [AppContextRule] {

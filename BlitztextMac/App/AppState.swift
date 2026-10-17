@@ -37,6 +37,8 @@ final class AppState {
     private var workflowCleanupTask: Task<Void, Never>?
     private var outputProcessingTask: Task<Void, Never>?
     private var applePrewarmRequestTask: Task<Void, Never>?
+    private var recordingStartedAt: Date?
+    private var lastRecordingDuration: TimeInterval = 0
 
     // Persisted settings
     var appSettings: AppSettings {
@@ -67,6 +69,9 @@ final class AppState {
     var dictationHistory: [DictationHistoryEntry] {
         didSet { saveSettings() }
     }
+    var statistics: DictationStatistics {
+        didSet { saveStatistics() }
+    }
 
     // Hotkeys
     let hotkeyService = HotkeyService()
@@ -95,6 +100,10 @@ final class AppState {
         self.dampfAblassenSettings = Self.loadDampfAblassenSettings()
         self.emojiTextSettings = Self.loadEmojiTextSettings()
         self.dictationHistory = Self.loadDictationHistory()
+        self.statistics = Self.loadStatistics() ?? .backfilled(from: Self.loadDictationHistory())
+        if !FileManager.default.fileExists(atPath: Self.statisticsURL.path) {
+            saveStatistics() // keeps the backfill even if the history is cleared later
+        }
         hotkeyService.configure(hotkeyCombos: appSettings.hotkeyCombos)
         refreshAccessibilityPermission()
         autoSelectFastLocalModelIfNeeded()
@@ -223,6 +232,8 @@ final class AppState {
         outputProcessingTask?.cancel()
         activeLaunchSource = source
         activePasteTarget = capturePasteTarget(for: source)
+        recordingStartedAt = nil
+        lastRecordingDuration = 0
 
         switch type {
         case .transcription:
@@ -378,6 +389,10 @@ final class AppState {
         dictationHistory.removeAll()
     }
 
+    func resetStatistics() {
+        statistics = DictationStatistics()
+    }
+
     func contextRule(for bundleIdentifier: String?) -> AppContextRule {
         guard let bundleIdentifier else {
             return appSettings.appContextRules.first { $0.category == .general } ?? AppContextRule.defaults.last!
@@ -526,6 +541,20 @@ final class AppState {
         Array((loadContainer()?.history ?? []).prefix(historyLimit))
     }
 
+    private static let statisticsURL = AppSupportPaths.appSupportDirectoryURL.appendingPathComponent("statistics.json")
+
+    private func saveStatistics() {
+        if let data = try? JSONEncoder().encode(statistics) {
+            try? data.write(to: Self.statisticsURL, options: .atomic)
+        }
+    }
+
+    private static func loadStatistics() -> DictationStatistics? {
+        _ = settingsURL // creates the support directory
+        guard let data = try? Data(contentsOf: statisticsURL) else { return nil }
+        return try? JSONDecoder().decode(DictationStatistics.self, from: data)
+    }
+
     private static func loadContainer() -> SettingsContainer? {
         guard let data = try? Data(contentsOf: settingsURL) else { return nil }
         return try? JSONDecoder().decode(SettingsContainer.self, from: data)
@@ -589,6 +618,7 @@ final class AppState {
         target: PasteTarget?,
         launchSource: WorkflowLaunchSource
     ) async {
+        let text = TextReplacementService.apply(appSettings.textReplacementRules, to: text)
         let rule = contextRule(for: target?.bundleIdentifier)
         let shouldApplyContext = workflowType != .localTranscription
             && KeychainService.isConfigured
@@ -622,6 +652,13 @@ final class AppState {
         )
         dictationHistory.insert(entry, at: 0)
         dictationHistory = Array(dictationHistory.prefix(Self.historyLimit))
+        statistics.record(
+            words: DictationStatistics.wordCount(in: finalText),
+            recordingSeconds: lastRecordingDuration,
+            workflowType: workflowType,
+            bundleIdentifier: target?.bundleIdentifier,
+            appName: target?.application.localizedName
+        )
         let pastedText = appSettings.appendsTrailingSpace && !(finalText.last?.isWhitespace ?? true)
             ? finalText + " "
             : finalText
@@ -661,6 +698,7 @@ final class AppState {
 
         case .running:
             if workflow.isRecording {
+                if recordingStartedAt == nil { recordingStartedAt = Date() }
                 recordingFeedback.recordingStarted(
                     playSound: appSettings.playsFeedbackSounds,
                     muteSystemAudio: appSettings.mutesSystemAudioWhileRecording
@@ -675,6 +713,7 @@ final class AppState {
                     showsLiveTranscript: workflow.supportsLiveTranscript
                 )
             } else {
+                markRecordingEnded()
                 recordingFeedback.recordingEnded(.stop, playSound: appSettings.playsFeedbackSounds)
                 recordingMarkerOverlay.hide()
             }
@@ -683,6 +722,7 @@ final class AppState {
                 : .processing(workflow.type)
 
         case .done:
+            markRecordingEnded()
             recordingFeedback.recordingEnded(.stop, playSound: appSettings.playsFeedbackSounds)
             recordingMarkerOverlay.hide()
             menuBarStatus = .success(workflow.type)
@@ -698,6 +738,12 @@ final class AppState {
             }
             scheduleMenuBarStatusReset(after: 1.6)
         }
+    }
+
+    private func markRecordingEnded() {
+        guard let recordingStartedAt else { return }
+        lastRecordingDuration = Date().timeIntervalSince(recordingStartedAt)
+        self.recordingStartedAt = nil
     }
 
     private func scheduleWorkflowCleanup(after delay: TimeInterval) {

@@ -2,10 +2,12 @@ import SwiftUI
 import AppKit
 
 enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
+    case statistics
     case general
     case behavior
     case hotkeys
     case workflows
+    case dictionary
     case context
     case history
     case access
@@ -14,10 +16,12 @@ enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
 
     var title: String {
         switch self {
+        case .statistics: return "Statistik"
         case .general: return "Transkription"
         case .behavior: return "Verhalten"
         case .hotkeys: return "Tastenkürzel"
         case .workflows: return "Workflows"
+        case .dictionary: return "Wörterbuch"
         case .context: return "App-Kontext"
         case .history: return "Verlauf"
         case .access: return "Zugang & System"
@@ -26,10 +30,12 @@ enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
 
     var subtitle: String {
         switch self {
+        case .statistics: return "Wie viel du mit Whispy schon diktiert hast."
         case .general: return "Welche Engine deine Stimme in Text verwandelt."
         case .behavior: return "Was beim Aufnehmen und Einfügen passiert."
         case .hotkeys: return "Klicke auf ein Kürzel und drücke die neue Kombination."
         case .workflows: return "Stil und Anweisungen für die KI-Workflows."
+        case .dictionary: return "Eigennamen, Ersetzungen und Füllwörter, die verschwinden sollen."
         case .context: return "Whispy passt den Stil an die App an, in die du diktierst."
         case .history: return "Deine letzten \(AppState.historyLimit) Diktate, nur auf diesem Mac."
         case .access: return "Rechte, OpenAI-Key und Installation."
@@ -38,10 +44,12 @@ enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
 
     var icon: String {
         switch self {
+        case .statistics: return "chart.bar.xaxis"
         case .general: return "waveform"
         case .behavior: return "slider.horizontal.3"
         case .hotkeys: return "keyboard"
         case .workflows: return "sparkles"
+        case .dictionary: return "character.book.closed"
         case .context: return "app.connected.to.app.below.fill"
         case .history: return "clock.arrow.circlepath"
         case .access: return "lock.shield"
@@ -90,6 +98,8 @@ struct SettingsContentView: View {
 
                     if selection == .access {
                         AccessSettingsView(appState: appState)
+                    } else if selection == .statistics {
+                        StatisticsSettingsView(appState: appState)
                     } else {
                         CustomizeSettingsView(appState: appState, pane: selection)
                     }
@@ -1059,10 +1069,15 @@ struct CustomizeSettingsView: View {
                 }
             }
             .settingsSection()
+            }
 
+            if pane == .dictionary {
             // MARK: Eigennamen
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel(text: "Eigennamen")
+                Text("Hilft der Erkennung bei Namen und Fachbegriffen, die sie sonst falsch schreibt.")
+                    .font(.raycast(size: 10.5))
+                    .foregroundStyle(.secondary)
 
                 // Term chips
                 if !appState.textImprovementSettings.customTerms.isEmpty {
@@ -1112,6 +1127,8 @@ struct CustomizeSettingsView: View {
                 }
             }
             .settingsSection()
+
+            ReplacementRulesSection(rules: $appState.appSettings.textReplacementRules)
             }
 
             if pane == .behavior {
