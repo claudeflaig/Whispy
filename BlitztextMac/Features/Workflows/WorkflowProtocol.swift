@@ -331,6 +331,8 @@ struct AppSettings: Codable {
     var autoSubmitsAfterPaste: Bool = false
     // Dictionary, modelled on FoxSay: whole-word replacements and filler-word removal.
     var textReplacementRules: [TextReplacementRule] = TextReplacementRule.defaults
+    // Self-corrections, modelled on FoxSay's Vocal Corrections. Off by default.
+    var removesSelfCorrections: Bool = false
 
     init(
         hotkeyMode: HotkeyMode = .hold,
@@ -367,6 +369,7 @@ struct AppSettings: Codable {
         case appendsTrailingSpace
         case autoSubmitsAfterPaste
         case textReplacementRules
+        case removesSelfCorrections
     }
 
     init(from decoder: Decoder) throws {
@@ -403,6 +406,7 @@ struct AppSettings: Codable {
         autoSubmitsAfterPaste = try container.decodeIfPresent(Bool.self, forKey: .autoSubmitsAfterPaste) ?? false
         textReplacementRules = try container.decodeIfPresent([TextReplacementRule].self, forKey: .textReplacementRules)
             ?? TextReplacementRule.defaults
+        removesSelfCorrections = try container.decodeIfPresent(Bool.self, forKey: .removesSelfCorrections) ?? false
     }
 
     static func mergedContextRules(_ rules: [AppContextRule]) -> [AppContextRule] {

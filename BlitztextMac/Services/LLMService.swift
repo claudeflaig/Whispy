@@ -121,6 +121,19 @@ enum LLMService {
         )
     }
 
+    static func removeSelfCorrections(
+        text: String,
+        prompt: String,
+        model: RewriteModel = .fastEdit
+    ) async throws -> String {
+        try await complete(
+            text: text,
+            systemPrompt: prompt,
+            model: model,
+            temperature: 0
+        )
+    }
+
     private static func complete(
         text: String,
         systemPrompt: String,

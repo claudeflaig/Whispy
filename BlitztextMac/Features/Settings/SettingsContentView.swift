@@ -1170,6 +1170,14 @@ struct CustomizeSettingsView: View {
                         isOn: $appState.appSettings.appendsTrailingSpace
                     )
                     behaviorToggle(
+                        "Selbstkorrekturen glätten",
+                        detail: "Sagst du „am Montag, nein, am Freitag“, wird nur „am Freitag“ eingefügt. "
+                            + (SelfCorrectionService.onDeviceUnavailableReason.map {
+                                "\($0) Bis dahin wirkt es nur bei OpenAI-Diktaten, lokale Diktate bleiben unverändert."
+                            } ?? "Läuft mit Apples Sprachmodell auf diesem Mac und nur, wenn du dich hörbar korrigierst."),
+                        isOn: $appState.appSettings.removesSelfCorrections
+                    )
+                    behaviorToggle(
                         "Automatisch senden",
                         detail: "Drückt nach dem Einfügen Return, etwa in Chats oder bei AI-Agenten.",
                         isOn: $appState.appSettings.autoSubmitsAfterPaste

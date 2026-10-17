@@ -82,6 +82,7 @@ enum AppleSpeechSessionFactory {
         warmedSession = nil
         warmedKey = nil
         warmupTask = Task { @MainActor in
+            SharedInputEngine.prewarm()
             let session = AppleSpeechSession(language: language, customTerms: customTerms)
             do {
                 try await session.start()
@@ -307,9 +308,88 @@ private final class AppleSpeechSession: AppleSpeechSessionProtocol {
     }
 }
 
+/// One capture graph shared by every Apple Speech session, modelled on FoxSay.
+/// Building an AVAudioEngine and its input node costs most of the start-up time of a
+/// recording, so the graph is kept between dictations. The engine is stopped while
+/// idle, which releases the microphone, and the graph is dropped after two idle
+/// minutes or when the audio hardware changes.
+private enum SharedInputEngine {
+    private static let lock = NSLock()
+    private static var engine: AVAudioEngine?
+    private static var configurationObserver: NSObjectProtocol?
+    private static var idleTeardown: DispatchWorkItem?
+    /// The hardware changed while a recording was running; drop the graph when it ends.
+    private static var isStale = false
+    private static let idleTeardownDelay: TimeInterval = 120
+
+    /// The standing engine, or a newly built one. Cancels a pending teardown.
+    static func acquire() -> AVAudioEngine {
+        lock.lock()
+        defer { lock.unlock() }
+        idleTeardown?.cancel()
+        idleTeardown = nil
+        if let engine { return engine }
+
+        let engine = AVAudioEngine()
+        _ = engine.inputNode // builds the input side of the graph
+        engine.prepare()
+        configurationObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange,
+            object: engine,
+            queue: nil
+        ) { _ in
+            // A new default microphone or sample rate invalidates the warm graph.
+            lock.lock()
+            isStale = true
+            lock.unlock()
+            discard(ifIdle: true)
+        }
+        self.engine = engine
+        return engine
+    }
+
+    /// Builds the graph ahead of the first dictation without opening the microphone.
+    static func prewarm() {
+        _ = acquire()
+        scheduleTeardown()
+    }
+
+    /// Called once a recording no longer needs the engine.
+    static func scheduleTeardown() {
+        lock.lock()
+        let stale = isStale
+        lock.unlock()
+        if stale {
+            discard(ifIdle: true)
+            return
+        }
+
+        lock.lock()
+        defer { lock.unlock() }
+        idleTeardown?.cancel()
+        let work = DispatchWorkItem { discard(ifIdle: true) }
+        idleTeardown = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + idleTeardownDelay, execute: work)
+    }
+
+    private static func discard(ifIdle: Bool) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let engine, !(ifIdle && engine.isRunning) else { return }
+        if let configurationObserver {
+            NotificationCenter.default.removeObserver(configurationObserver)
+        }
+        configurationObserver = nil
+        engine.inputNode.removeTap(onBus: 0)
+        engine.reset()
+        self.engine = nil
+        isStale = false
+    }
+}
+
 @available(macOS 26.0, *)
 private final class AppleSpeechAudioCapture: @unchecked Sendable {
-    private let engine = AVAudioEngine()
+    private var engine: AVAudioEngine?
     private let processingQueue = DispatchQueue(label: "app.claudeflaig.whispy.apple-speech-audio", qos: .userInitiated)
 
     private var converter: AVAudioConverter?
@@ -334,6 +414,8 @@ private final class AppleSpeechAudioCapture: @unchecked Sendable {
             fallbackSamples.removeAll(keepingCapacity: true)
         }
 
+        let engine = SharedInputEngine.acquire()
+        self.engine = engine
         let input = engine.inputNode
         let nativeFormat = input.outputFormat(forBus: 0)
         self.nativeFormat = nativeFormat
@@ -359,8 +441,14 @@ private final class AppleSpeechAudioCapture: @unchecked Sendable {
             }
         }
 
-        engine.prepare()
-        try engine.start()
+        do {
+            try engine.start()
+        } catch {
+            input.removeTap(onBus: 0)
+            self.engine = nil
+            SharedInputEngine.scheduleTeardown()
+            throw error
+        }
         isRunning = true
     }
 
@@ -391,10 +479,13 @@ private final class AppleSpeechAudioCapture: @unchecked Sendable {
     }
 
     func pause() {
-        guard isRunning else { return }
+        guard isRunning, let engine else { return }
         engine.inputNode.removeTap(onBus: 0)
+        // Stopping releases the microphone; the graph itself stays warm for the next dictation.
         engine.stop()
+        self.engine = nil
         isRunning = false
+        SharedInputEngine.scheduleTeardown()
         onLevel?(0)
     }
 

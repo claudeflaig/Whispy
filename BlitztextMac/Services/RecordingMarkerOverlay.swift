@@ -20,23 +20,7 @@ final class RecordingMarkerOverlay {
         self.anchorFrame = Self.focusedElementFrame()
         model.showsLiveTranscript = showsLiveTranscript
 
-        if window == nil {
-            let controller = NSHostingController(rootView: RecordingMarkerView(model: model))
-            let panel = RecordingMarkerPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 380, height: 72),
-                styleMask: [.borderless, .nonactivatingPanel],
-                backing: .buffered,
-                defer: false
-            )
-            panel.contentViewController = controller
-            panel.backgroundColor = .clear
-            panel.isOpaque = false
-            panel.hasShadow = false
-            panel.level = .statusBar
-            panel.ignoresMouseEvents = true
-            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient, .ignoresCycle]
-            window = panel
-        }
+        prepareWindow()
 
         window?.setContentSize(showsLiveTranscript ? NSSize(width: 380, height: 72) : NSSize(width: 86, height: 34))
         updatePosition()
@@ -44,6 +28,36 @@ final class RecordingMarkerOverlay {
         window?.orderFrontRegardless()
         startTimer()
     }
+
+    /// Builds the panel ahead of time; the first SwiftUI layout costs about 80 ms.
+    func prepareWindow() {
+        guard window == nil else { return }
+        let controller = NSHostingController(rootView: RecordingMarkerView(model: model))
+        let panel = RecordingMarkerPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 380, height: 72),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.contentViewController = controller
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.hasShadow = false
+        panel.level = .statusBar
+        panel.ignoresMouseEvents = true
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient, .ignoresCycle]
+        window = panel
+        // Lay out and render both sizes once while hidden, so the first real
+        // appearance doesn't pay for SwiftUI's first pass.
+        for size in [NSSize(width: 380, height: 72), NSSize(width: 86, height: 34)] {
+            panel.setContentSize(size)
+            controller.view.layoutSubtreeIfNeeded()
+            panel.displayIfNeeded()
+        }
+    }
+
+    var isVisible: Bool { model.isVisible }
+    var showsLiveTranscript: Bool { model.showsLiveTranscript }
 
     func hide() {
         stopTimer()

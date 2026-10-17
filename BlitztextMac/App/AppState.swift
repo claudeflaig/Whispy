@@ -1,6 +1,9 @@
 import SwiftUI
 import Observation
 import AppKit
+import OSLog
+
+private let latencyLogger = Logger(subsystem: "app.claudeflaig.whispy", category: "Latency")
 
 enum PopoverPage: Equatable {
     case main
@@ -38,6 +41,7 @@ final class AppState {
     private var outputProcessingTask: Task<Void, Never>?
     private var applePrewarmRequestTask: Task<Void, Never>?
     private var recordingStartedAt: Date?
+    private var workflowRequestedAt: Date?
     private var lastRecordingDuration: TimeInterval = 0
 
     // Persisted settings
@@ -108,6 +112,9 @@ final class AppState {
         refreshAccessibilityPermission()
         autoSelectFastLocalModelIfNeeded()
         scheduleAppleSpeechPrewarm()
+        DispatchQueue.main.async { [recordingMarkerOverlay] in
+            recordingMarkerOverlay.prepareWindow()
+        }
     }
 
     private func scheduleAppleSpeechPrewarm() {
@@ -230,6 +237,7 @@ final class AppState {
         menuBarStatusResetTask?.cancel()
         workflowCleanupTask?.cancel()
         outputProcessingTask?.cancel()
+        workflowRequestedAt = Date()
         activeLaunchSource = source
         activePasteTarget = capturePasteTarget(for: source)
         recordingStartedAt = nil
@@ -243,9 +251,7 @@ final class AppState {
                 backend: .remote,
                 localModelName: selectedLocalModelName
             )
-            configureWorkflowHandlers(workflow)
-            activeWorkflow = workflow
-            workflow.start()
+            launch(workflow)
 
         case .localTranscription:
             let workflow = TranscriptionWorkflow(
@@ -255,18 +261,14 @@ final class AppState {
                 backend: effectiveLocalTranscriptionEngine == .appleSpeech ? .appleSpeech : .local,
                 localModelName: selectedLocalModelName
             )
-            configureWorkflowHandlers(workflow)
-            activeWorkflow = workflow
-            workflow.start()
+            launch(workflow)
 
         case .textImprover:
             let workflow = TextImprovementWorkflow(
                 settings: textImprovementSettings,
                 language: transcriptionSettings.language
             )
-            configureWorkflowHandlers(workflow)
-            activeWorkflow = workflow
-            workflow.start()
+            launch(workflow)
 
         case .dampfAblassen:
             let workflow = DampfAblassenWorkflow(
@@ -274,9 +276,7 @@ final class AppState {
                 customTerms: textImprovementSettings.customTerms,
                 language: transcriptionSettings.language
             )
-            configureWorkflowHandlers(workflow)
-            activeWorkflow = workflow
-            workflow.start()
+            launch(workflow)
 
         case .emojiText:
             let workflow = EmojiTextWorkflow(
@@ -284,12 +284,35 @@ final class AppState {
                 customTerms: textImprovementSettings.customTerms,
                 language: transcriptionSettings.language
             )
-            configureWorkflowHandlers(workflow)
-            activeWorkflow = workflow
-            workflow.start()
+            launch(workflow)
         }
 
         page = source.presentsWorkflowPage ? .workflow : .main
+    }
+
+    private func launch<T: Workflow>(_ workflow: T) {
+        configureWorkflowHandlers(workflow)
+        activeWorkflow = workflow
+        // Like FoxSay: the overlay answers the key press at once instead of waiting
+        // for the microphone, which takes another few dozen milliseconds to open.
+        showRecordingOverlay(for: workflow)
+        if let workflowRequestedAt {
+            let ms = Int(Date().timeIntervalSince(workflowRequestedAt) * 1000)
+            latencyLogger.debug("overlay visible \(ms, privacy: .public) ms after start request")
+        }
+        workflow.start()
+    }
+
+    private func showRecordingOverlay(for workflow: any Workflow) {
+        recordingMarkerOverlay.show(
+            audioLevelProvider: { [weak workflow] in
+                workflow?.audioLevel ?? 0
+            },
+            transcriptProvider: { [weak workflow] in
+                workflow?.liveTranscript ?? ""
+            },
+            showsLiveTranscript: workflow.supportsLiveTranscript
+        )
     }
 
     func isWorkflowAvailable(_ type: WorkflowType) -> Bool {
@@ -618,7 +641,15 @@ final class AppState {
         target: PasteTarget?,
         launchSource: WorkflowLaunchSource
     ) async {
-        let text = TextReplacementService.apply(appSettings.textReplacementRules, to: text)
+        var text = TextReplacementService.apply(appSettings.textReplacementRules, to: text)
+        if appSettings.removesSelfCorrections,
+           workflowType == .transcription || workflowType == .localTranscription,
+           SelfCorrectionService.mightContainCorrection(text) {
+            menuBarStatus = .processing(workflowType)
+            // Local dictations stay on the Mac: only the on-device model may see them.
+            text = await SelfCorrectionService.apply(to: text, allowsCloud: workflowType == .transcription)
+            guard !Task.isCancelled else { return }
+        }
         let rule = contextRule(for: target?.bundleIdentifier)
         let shouldApplyContext = workflowType != .localTranscription
             && KeychainService.isConfigured
@@ -698,20 +729,21 @@ final class AppState {
 
         case .running:
             if workflow.isRecording {
-                if recordingStartedAt == nil { recordingStartedAt = Date() }
+                if recordingStartedAt == nil {
+                    recordingStartedAt = Date()
+                    if let workflowRequestedAt {
+                        let ms = Int(Date().timeIntervalSince(workflowRequestedAt) * 1000)
+                        latencyLogger.debug("microphone open \(ms, privacy: .public) ms after start request")
+                    }
+                }
                 recordingFeedback.recordingStarted(
                     playSound: appSettings.playsFeedbackSounds,
                     muteSystemAudio: appSettings.mutesSystemAudioWhileRecording
                 )
-                recordingMarkerOverlay.show(
-                    audioLevelProvider: { [weak workflow] in
-                        workflow?.audioLevel ?? 0
-                    },
-                    transcriptProvider: { [weak workflow] in
-                        workflow?.liveTranscript ?? ""
-                    },
-                    showsLiveTranscript: workflow.supportsLiveTranscript
-                )
+                if !recordingMarkerOverlay.isVisible
+                    || recordingMarkerOverlay.showsLiveTranscript != workflow.supportsLiveTranscript {
+                    showRecordingOverlay(for: workflow)
+                }
             } else {
                 markRecordingEnded()
                 recordingFeedback.recordingEnded(.stop, playSound: appSettings.playsFeedbackSounds)
