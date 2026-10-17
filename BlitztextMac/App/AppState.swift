@@ -13,6 +13,7 @@ enum PopoverPage: Equatable {
 @MainActor
 final class AppState {
     private static let pasteRetryInitialAttempts = 22
+    static let historyLimit = 50
     private static let concealedPasteboardType = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
 
     var activeWorkflow: (any Workflow)?
@@ -70,6 +71,8 @@ final class AppState {
     // Hotkeys
     let hotkeyService = HotkeyService()
     private let recordingMarkerOverlay = RecordingMarkerOverlay()
+    private let recordingFeedback = RecordingFeedbackService()
+    private var clipboardRestoreTask: Task<Void, Never>?
 
     // Computed
     var isConfigured: Bool {
@@ -296,7 +299,16 @@ final class AppState {
         activeWorkflow?.stop()
     }
 
+    /// Escape: throw the current recording away instead of transcribing it.
+    func cancelCurrentWorkflow() {
+        guard let activeWorkflow, activeWorkflow.phase.isActive else { return }
+        if case .running = activeWorkflow.phase {
+            resetCurrentWorkflow()
+        }
+    }
+
     func resetCurrentWorkflow() {
+        recordingFeedback.recordingEnded(.cancel, playSound: appSettings.playsFeedbackSounds)
         recordingMarkerOverlay.hide()
         activeWorkflow?.reset()
         activeWorkflow = nil
@@ -380,7 +392,9 @@ final class AppState {
     /// Copies the text, restores focus when needed, then simulates Cmd+V.
     /// The text intentionally remains on the clipboard as a fallback if paste is blocked.
     private func pasteAtCursor(_ text: String, target: PasteTarget? = nil) {
+        let previousClipboard = appSettings.restoresClipboard ? ClipboardSnapshot.capture() : nil
         writeSensitiveTextToPasteboard(text)
+        let ownChangeCount = NSPasteboard.general.changeCount
 
         let resolvedTarget = target ?? lastPopoverPasteTarget ?? captureCurrentFrontmostApp()
 
@@ -398,7 +412,28 @@ final class AppState {
         attemptPasteTrusted(
             target: resolvedTarget,
             attemptsRemaining: Self.pasteRetryInitialAttempts
-        )
+        ) { [weak self] in
+            guard let self else { return }
+            if self.appSettings.autoSubmitsAfterPaste {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                    Self.postKey(0x24) // Return
+                }
+            }
+            if let previousClipboard {
+                self.scheduleClipboardRestore(previousClipboard, ifChangeCountIs: ownChangeCount)
+            }
+        }
+    }
+
+    /// Puts back what was on the clipboard before the dictation, unless the user
+    /// copied something new in the meantime.
+    private func scheduleClipboardRestore(_ snapshot: ClipboardSnapshot, ifChangeCountIs changeCount: Int) {
+        clipboardRestoreTask?.cancel()
+        clipboardRestoreTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(700))
+            guard !Task.isCancelled, NSPasteboard.general.changeCount == changeCount else { return }
+            snapshot.restore()
+        }
     }
 
     private func writeSensitiveTextToPasteboard(_ text: String) {
@@ -488,7 +523,7 @@ final class AppState {
     }
 
     private static func loadDictationHistory() -> [DictationHistoryEntry] {
-        Array((loadContainer()?.history ?? []).prefix(20))
+        Array((loadContainer()?.history ?? []).prefix(historyLimit))
     }
 
     private static func loadContainer() -> SettingsContainer? {
@@ -586,8 +621,11 @@ final class AppState {
             finalText: finalText
         )
         dictationHistory.insert(entry, at: 0)
-        dictationHistory = Array(dictationHistory.prefix(20))
-        pasteAtCursor(finalText, target: target)
+        dictationHistory = Array(dictationHistory.prefix(Self.historyLimit))
+        let pastedText = appSettings.appendsTrailingSpace && !(finalText.last?.isWhitespace ?? true)
+            ? finalText + " "
+            : finalText
+        pasteAtCursor(pastedText, target: target)
         if launchSource == .hotkeyBackground {
             page = .main
         }
@@ -623,6 +661,10 @@ final class AppState {
 
         case .running:
             if workflow.isRecording {
+                recordingFeedback.recordingStarted(
+                    playSound: appSettings.playsFeedbackSounds,
+                    muteSystemAudio: appSettings.mutesSystemAudioWhileRecording
+                )
                 recordingMarkerOverlay.show(
                     audioLevelProvider: { [weak workflow] in
                         workflow?.audioLevel ?? 0
@@ -633,6 +675,7 @@ final class AppState {
                     showsLiveTranscript: workflow.supportsLiveTranscript
                 )
             } else {
+                recordingFeedback.recordingEnded(.stop, playSound: appSettings.playsFeedbackSounds)
                 recordingMarkerOverlay.hide()
             }
             menuBarStatus = workflow.isRecording
@@ -640,10 +683,12 @@ final class AppState {
                 : .processing(workflow.type)
 
         case .done:
+            recordingFeedback.recordingEnded(.stop, playSound: appSettings.playsFeedbackSounds)
             recordingMarkerOverlay.hide()
             menuBarStatus = .success(workflow.type)
 
         case .error:
+            recordingFeedback.recordingEnded(.cancel, playSound: appSettings.playsFeedbackSounds)
             recordingMarkerOverlay.hide()
             menuBarStatus = .error(workflow.type)
             if activeLaunchSource == .hotkeyBackground {
@@ -699,19 +744,22 @@ final class AppState {
 
     private func attemptPasteTrusted(
         target: PasteTarget?,
-        attemptsRemaining: Int
+        attemptsRemaining: Int,
+        afterPaste: @escaping () -> Void
     ) {
         let frontmostPid = NSWorkspace.shared.frontmostApplication?.processIdentifier
 
         if let target {
             if frontmostPid == target.processIdentifier {
                 performPaste()
+                afterPaste()
                 return
             }
 
             target.application.activate(options: [.activateIgnoringOtherApps])
         } else {
             performPaste()
+            afterPaste()
             return
         }
 
@@ -732,17 +780,22 @@ final class AppState {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             self?.attemptPasteTrusted(
                 target: target,
-                attemptsRemaining: attemptsRemaining - 1
+                attemptsRemaining: attemptsRemaining - 1,
+                afterPaste: afterPaste
             )
         }
     }
 
     private func performPaste() {
+        Self.postKey(0x09, flags: .maskCommand) // Cmd+V
+    }
+
+    private static func postKey(_ keyCode: CGKeyCode, flags: CGEventFlags = []) {
         let source = CGEventSource(stateID: .hidSystemState)
-        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: true)
-        keyDown?.flags = .maskCommand
-        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x09, keyDown: false)
-        keyUp?.flags = .maskCommand
+        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true)
+        keyDown?.flags = flags
+        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false)
+        keyUp?.flags = flags
         keyDown?.post(tap: .cghidEventTap)
         keyUp?.post(tap: .cghidEventTap)
     }
@@ -775,6 +828,33 @@ private struct SettingsContainer: Codable {
 extension Notification.Name {
     static let dismissPopover = Notification.Name("dismissPopover")
     static let openSettingsWindow = Notification.Name("openSettingsWindow")
+}
+
+/// A copy of every item on the general pasteboard, so it can be put back after
+/// Whispy borrowed the clipboard for pasting.
+private struct ClipboardSnapshot {
+    private let items: [[NSPasteboard.PasteboardType: Data]]
+
+    static func capture() -> ClipboardSnapshot? {
+        let items = (NSPasteboard.general.pasteboardItems ?? []).map { item in
+            Dictionary(uniqueKeysWithValues: item.types.compactMap { type in
+                item.data(forType: type).map { (type, $0) }
+            })
+        }
+        return items.isEmpty ? nil : ClipboardSnapshot(items: items)
+    }
+
+    func restore() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.writeObjects(items.map { entries in
+            let item = NSPasteboardItem()
+            for (type, data) in entries {
+                item.setData(data, forType: type)
+            }
+            return item
+        })
+    }
 }
 
 private struct PasteTarget {

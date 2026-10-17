@@ -83,6 +83,72 @@ ensure_xcodebuild_available() {
     exit 1
 }
 
+# Signiert wie Pastely: mit einem eigenen Zertifikat aus dem Schlüsselbund, damit
+# macOS jeden Neubau als dieselbe App erkennt und Mikrofon, Bedienungshilfen und
+# Spracherkennung nicht nach jeder Anpassung neu freigegeben werden müssen.
+# Gesucht wird SIGN_IDENTITY, sonst "Whispy Developer", sonst das bereits
+# vorhandene "Pastely Developer". Ohne Zertifikat wird ad hoc signiert, und
+# macOS fragt nach jedem Build erneut nach den Rechten (siehe README).
+BUNDLE_ID="app.claudeflaig.whispy"
+
+resolve_sign_identity() {
+    local candidates=()
+    if [ -n "${SIGN_IDENTITY:-}" ]; then
+        candidates+=("$SIGN_IDENTITY")
+    fi
+    candidates+=("Whispy Developer" "Pastely Developer")
+
+    local identities
+    identities="$(security find-identity -p codesigning 2>/dev/null || true)"
+    for candidate in "${candidates[@]}"; do
+        if grep -q "\"$candidate" <<<"$identities"; then
+            echo "$candidate"
+            return
+        fi
+    done
+}
+
+sign_app() {
+    local app_path="$1"
+    local identity
+    identity="$(resolve_sign_identity)"
+
+    # iCloud Drive (Documents) versieht Dateien mit Attributen, die codesign
+    # ablehnt. Deshalb wird außerhalb des Projekts signiert und dann kopiert.
+    local stage
+    stage="$(mktemp -d)"
+    ditto --noextattr --norsrc "$app_path" "$stage/Whispy.app"
+
+    if [ -n "$identity" ]; then
+        echo "🔏 Signiere mit Zertifikat \"$identity\" – Rechte bleiben über Neubauten erhalten."
+        codesign --force --deep --sign "$identity" \
+            --identifier "$BUNDLE_ID" \
+            --entitlements "$PROJECT_DIR/Resources/BlitztextMac.entitlements" \
+            "$stage/Whispy.app"
+    elif [ "${REQUIRE_IDENTITY:-0}" = 1 ]; then
+        echo "❌ Kein Signier-Zertifikat im Schlüsselbund gefunden."
+        rm -rf "$stage"
+        exit 1
+    else
+        echo "⚠️  Kein Zertifikat \"Whispy Developer\" gefunden – signiere ad hoc."
+        echo "   macOS wird die Rechte nach jedem Build neu verlangen. Einrichtung: siehe README."
+        codesign --force --deep --sign - \
+            --identifier "$BUNDLE_ID" \
+            --entitlements "$PROJECT_DIR/Resources/BlitztextMac.entitlements" \
+            -r="designated => identifier \"$BUNDLE_ID\"" \
+            "$stage/Whispy.app"
+    fi
+
+    # Prüfen, solange die App noch außerhalb von iCloud liegt: iCloud hängt
+    # im Projektordner sofort wieder Attribute an, die --strict ablehnt.
+    codesign --verify --deep --strict "$stage/Whispy.app"
+    echo "   Signatur ok: $(codesign -dvv "$stage/Whispy.app" 2>&1 | grep -E "^Authority=" | head -1 || echo 'ad hoc')"
+
+    rm -rf "$app_path"
+    ditto --noextattr --norsrc "$stage/Whispy.app" "$app_path"
+    rm -rf "$stage"
+}
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR/BlitztextMac"
 PROJECT_FILE="$PROJECT_DIR/BlitztextMac.xcodeproj"
@@ -142,8 +208,7 @@ DEST="$SCRIPT_DIR/Whispy.app"
 rm -rf "$DEST"
 cp -R "$APP_PATH" "$DEST"
 xattr -cr "$DEST" 2>/dev/null || true
-echo "🔏 Signiere lokale Development-App ad-hoc. Dieses Artefakt ist nicht notarisiert."
-codesign --force --deep --sign - "$DEST" 2>&1
+sign_app "$DEST"
 verify_universal_app "$DEST"
 
 RUN_TARGET="$DEST"
@@ -156,11 +221,11 @@ if [ "$INSTALL_APP" = true ]; then
         echo "   Fuehre den Befehl mit passenden Rechten erneut aus oder ziehe die App manuell nach /Applications."
         exit 1
     fi
+    # Laufende Instanz beenden, damit die neue Version sauber ersetzt wird.
+    osascript -e 'tell application id "app.claudeflaig.whispy" to quit' >/dev/null 2>&1 || true
     rm -rf "$INSTALL_DEST"
-    cp -R "$DEST" "$INSTALL_DEST"
-    xattr -cr "$INSTALL_DEST" 2>/dev/null || true
-    echo "🔏 Signiere lokale Development-App ad-hoc. Dieses Artefakt ist nicht notarisiert."
-    codesign --force --deep --sign - "$INSTALL_DEST" 2>&1
+    ditto --noextattr --norsrc "$DEST" "$INSTALL_DEST"
+    codesign --verify --deep --strict "$INSTALL_DEST"
     verify_universal_app "$INSTALL_DEST"
     RUN_TARGET="$INSTALL_DEST"
 fi
