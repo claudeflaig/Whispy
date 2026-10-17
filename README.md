@@ -22,7 +22,7 @@ This is a learning and experimentation project, not a polished product.
 - No hosted Blitztext backend is included or provided.
 - In online mode, audio and text are sent directly from the app to the OpenAI API.
 - Optional local transcription via WhisperKit/CoreML if you install a compatible model locally.
-- `./build.sh` creates a locally ad-hoc-signed development app. No notarized release binary is provided.
+- `./build.sh` signs the app with your own local certificate (see [Keep permissions across rebuilds](#keep-permissions-across-rebuilds)), falling back to ad hoc. No notarized release binary is provided.
 - Not production ready.
 - No warranty and no support guarantee.
 
@@ -78,7 +78,18 @@ For a local install into `/Applications`:
 ./build.sh --install --run
 ```
 
-The generated `.app` is ad-hoc signed for local development only. Do not treat it as a trusted redistributable binary. A public binary release would need Developer ID signing and notarization.
+The generated `.app` is signed for local development only. Do not treat it as a trusted redistributable binary. A public binary release would need Developer ID signing and notarization.
+
+### Keep permissions across rebuilds
+
+Signed ad hoc, macOS treats every rebuild as a new app and forgets Microphone, Speech Recognition and Accessibility. A self-signed certificate fixes that once, the same way Pastely does:
+
+1. Open **Keychain Access → Certificate Assistant → Create a Certificate…**
+2. Name: `Whispy Developer`, Identity Type: **Self Signed Root**, Certificate Type: **Code Signing** → **Create**.
+3. Run `./build.sh --install` again. If macOS asks whether `codesign` may use the key, choose **Always Allow**.
+4. Grant the permissions one last time. They now survive every rebuild.
+
+If a `Pastely Developer` certificate is already in the keychain, `build.sh` uses it automatically. `SIGN_IDENTITY="…" ./build.sh` picks another one.
 
 On first launch, either paste your own OpenAI API key for online workflows or install a WhisperKit CoreML model for local transcription. Rewriting workflows still require OpenAI.
 

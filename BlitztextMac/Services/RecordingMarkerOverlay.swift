@@ -217,7 +217,7 @@ private struct RecordingMarkerView: View {
             indicator(barCount: 7)
 
             Rectangle()
-                .fill(Color.white.opacity(0.12))
+                .fill(Color.primary.opacity(0.12))
                 .frame(width: 1, height: 34)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -225,7 +225,7 @@ private struct RecordingMarkerView: View {
                     Text("WHISPY LIVE")
                         .font(.system(size: 8.5, weight: .black, design: .rounded))
                         .tracking(0.55)
-                        .foregroundStyle(Color.white.opacity(0.92))
+                        .foregroundStyle(.secondary)
                     Circle()
                         .fill(Color.green)
                         .frame(width: 5, height: 5)
@@ -233,7 +233,7 @@ private struct RecordingMarkerView: View {
 
                 Text(model.transcript.isEmpty ? "Ich höre zu …" : latestTranscriptExcerpt)
                     .font(.system(size: 12.5, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color.white.opacity(model.transcript.isEmpty ? 0.58 : 0.92))
+                    .foregroundStyle(model.transcript.isEmpty ? Color.secondary : Color.primary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
                     .frame(width: 240, alignment: .leading)
@@ -277,7 +277,7 @@ private struct RecordingMarkerView: View {
             HStack(spacing: 2) {
                 ForEach(0..<barCount, id: \.self) { index in
                     Capsule()
-                        .fill(Color.white.opacity(0.92))
+                        .fill(Color.primary.opacity(0.85))
                         .frame(width: 3, height: barHeight(for: index, count: barCount))
                 }
             }
@@ -300,14 +300,20 @@ private struct RecordingMarkerView: View {
         return "…\(rawSuffix)"
     }
 
+    @ViewBuilder
     private func panelBackground(cornerRadius: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(.black.opacity(0.80))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.8)
-            )
-            .shadow(color: .black.opacity(0.30), radius: 15, y: 6)
+        if #available(macOS 26.0, *) {
+            Color.clear
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        } else {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(.regularMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.16), lineWidth: 0.8)
+                )
+                .shadow(color: .black.opacity(0.22), radius: 12, y: 5)
+        }
     }
 
     private var normalizedLevel: CGFloat {

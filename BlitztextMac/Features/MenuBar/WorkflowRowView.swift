@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// A menu-like row: icon, name, one line of detail and the shortcut keys.
 struct WorkflowRowView: View {
     let type: WorkflowType
     let enabled: Bool
@@ -9,101 +10,47 @@ struct WorkflowRowView: View {
     let action: () -> Void
 
     @State private var isHovered = false
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.primary.opacity(isHovered && enabled ? 0.10 : 0.065))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(Color.primary.opacity(0.09), lineWidth: 0.7)
-                        )
+            HStack(spacing: 10) {
+                Image(systemName: type.icon)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(isHovered && enabled ? Color.raycastRed : .secondary)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color.primary.opacity(0.06))
+                    )
 
-                    Image(systemName: type.icon)
-                        .font(.raycast(size: 15, weight: .semibold))
-                        .foregroundStyle(enabled ? Color.primary.opacity(0.82) : Color.secondary.opacity(0.45))
-                }
-                .frame(width: 42, height: 42)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Text(customName ?? type.displayName)
-                            .font(.raycast(size: 13.5, weight: .bold))
-                            .foregroundStyle(enabled ? .primary : .tertiary)
-                            .lineLimit(1)
-
-                        if type == .localTranscription {
-                            miniPill("LOKAL", color: .secondary)
-                        } else if type == .transcription {
-                            miniPill("OPENAI", color: .secondary)
-                        }
-                    }
-
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(customName ?? type.displayName)
+                        .font(.raycast(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
                     Text(subtitle ?? type.subtitle)
-                        .font(.raycast(size: 10.7, weight: .medium))
-                        .foregroundStyle(enabled ? .secondary : .quaternary)
+                        .font(.raycast(size: 10.5))
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
 
-                Spacer(minLength: 8)
+                Spacer(minLength: 6)
 
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("Shortcut")
-                        .font(.raycast(size: 8.5, weight: .bold))
-                        .tracking(0.35)
-                        .foregroundStyle(enabled ? .tertiary : .quaternary)
-                    HotkeyBadge(label: hotkeyLabel ?? type.hotkeyLabel, enabled: enabled, accent: accent)
-                        .opacity(enabled ? 1 : 0.35)
-                }
+                HotkeyBadge(label: hotkeyLabel ?? type.hotkeyLabel, enabled: enabled)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
             .background(
-                RoundedRectangle(cornerRadius: 17, style: .continuous)
-                    .fill(cardFill)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.primary.opacity(isHovered && enabled ? 0.07 : 0))
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 17, style: .continuous)
-                    .strokeBorder(cardStroke, lineWidth: 0.8)
-            )
-            .shadow(color: .black.opacity(isHovered && enabled ? 0.08 : 0.02), radius: isHovered ? 8 : 3, y: isHovered ? 3 : 1)
-            .padding(.horizontal, 12)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
-        .opacity(enabled ? 1 : 0.55)
-        .animation(.spring(response: 0.22, dampingFraction: 0.82), value: isHovered)
-        .onHover { hovering in
-            isHovered = hovering
-        }
-    }
-
-    private func miniPill(_ text: String, color: Color) -> some View {
-        Text(text)
-            .font(.raycast(size: 7.8, weight: .black))
-            .tracking(0.45)
-            .foregroundStyle(color)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2.5)
-            .background(Capsule(style: .continuous).fill(color.opacity(0.12)))
-    }
-
-    private var accent: Color { .secondary }
-
-    private var cardFill: Color {
-        if colorScheme == .dark {
-            return Color.white.opacity(isHovered && enabled ? 0.085 : 0.055)
-        }
-        return Color.white.opacity(isHovered && enabled ? 0.78 : 0.58)
-    }
-
-    private var cardStroke: Color {
-        if isHovered && enabled { return .raycastRed.opacity(0.30) }
-        return colorScheme == .dark ? Color.white.opacity(0.10) : Color.white.opacity(0.74)
+        .opacity(enabled ? 1 : 0.45)
+        .animation(.easeOut(duration: 0.12), value: isHovered)
+        .onHover { isHovered = $0 }
     }
 }
 
@@ -112,46 +59,31 @@ struct WorkflowRowView: View {
 struct HotkeyBadge: View {
     let label: String
     let enabled: Bool
-    var accent: Color = .secondary
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: 3) {
             ForEach(label.components(separatedBy: " + "), id: \.self) { key in
-                Text(key)
-                    .font(.raycastMono(size: 10.5, weight: .semibold))
-                    .foregroundStyle(keyTextColor)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
+                Text(Self.symbol(for: key))
+                    .font(.raycastMono(size: 10.5, weight: .medium))
+                    .foregroundStyle(enabled ? .secondary : .tertiary)
+                    .padding(.horizontal, 6)
+                    .frame(minWidth: 20, minHeight: 19)
                     .background(
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .fill(keyBackground)
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(Color.primary.opacity(0.07))
                     )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .strokeBorder(keyStrokeColor, lineWidth: 0.8)
-                    )
-                    .shadow(color: keyShadowColor, radius: 2.0, y: 1)
             }
         }
     }
 
-    private var keyTextColor: Color {
-        guard enabled else {
-            return colorScheme == .dark ? Color.white.opacity(0.34) : Color.black.opacity(0.26)
+    /// Mac keyboard glyphs, as in system menus.
+    private static func symbol(for key: String) -> String {
+        switch key {
+        case "Shift": return "⇧"
+        case "Ctrl": return "⌃"
+        case "Option": return "⌥"
+        case "Cmd": return "⌘"
+        default: return key
         }
-        return colorScheme == .dark ? Color.white.opacity(0.90) : Color.black.opacity(0.76)
-    }
-
-    private var keyBackground: some ShapeStyle {
-        Color.primary.opacity(enabled ? (colorScheme == .dark ? 0.09 : 0.06) : 0.025)
-    }
-
-    private var keyStrokeColor: Color {
-        Color.primary.opacity(enabled ? 0.14 : 0.06)
-    }
-
-    private var keyShadowColor: Color {
-        enabled ? Color.black.opacity(0.08) : .clear
     }
 }

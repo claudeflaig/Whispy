@@ -19,7 +19,7 @@ enum HotkeyMode: String, Codable, CaseIterable, Identifiable {
     var description: String {
         switch self {
         case .hold: return "Tasten halten zum Aufnehmen, loslassen zum Stoppen"
-        case .toggle: return "Einmal drücken zum Starten, nochmal oder Escape = Stoppen"
+        case .toggle: return "Einmal drücken zum Starten, nochmal drücken zum Stoppen"
         }
     }
 }

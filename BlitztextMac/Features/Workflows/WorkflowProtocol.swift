@@ -323,6 +323,12 @@ struct AppSettings: Codable {
     var hasAutoSelectedFastLocalModel: Bool = false
     var hotkeyCombos: [WorkflowType: HotkeyCombo] = WorkflowType.defaultHotkeyCombos
     var appContextRules: [AppContextRule] = AppContextRule.defaults
+    // Output behaviour, modelled on Handy.
+    var restoresClipboard: Bool = true
+    var playsFeedbackSounds: Bool = true
+    var mutesSystemAudioWhileRecording: Bool = false
+    var appendsTrailingSpace: Bool = false
+    var autoSubmitsAfterPaste: Bool = false
 
     init(
         hotkeyMode: HotkeyMode = .hold,
@@ -353,6 +359,11 @@ struct AppSettings: Codable {
         case hasAutoSelectedFastLocalModel
         case hotkeyCombos
         case appContextRules
+        case restoresClipboard
+        case playsFeedbackSounds
+        case mutesSystemAudioWhileRecording
+        case appendsTrailingSpace
+        case autoSubmitsAfterPaste
     }
 
     init(from decoder: Decoder) throws {
@@ -382,6 +393,11 @@ struct AppSettings: Codable {
         appContextRules = AppSettings.mergedContextRules(
             try container.decodeIfPresent([AppContextRule].self, forKey: .appContextRules) ?? AppContextRule.defaults
         )
+        restoresClipboard = try container.decodeIfPresent(Bool.self, forKey: .restoresClipboard) ?? true
+        playsFeedbackSounds = try container.decodeIfPresent(Bool.self, forKey: .playsFeedbackSounds) ?? true
+        mutesSystemAudioWhileRecording = try container.decodeIfPresent(Bool.self, forKey: .mutesSystemAudioWhileRecording) ?? false
+        appendsTrailingSpace = try container.decodeIfPresent(Bool.self, forKey: .appendsTrailingSpace) ?? false
+        autoSubmitsAfterPaste = try container.decodeIfPresent(Bool.self, forKey: .autoSubmitsAfterPaste) ?? false
     }
 
     static func mergedContextRules(_ rules: [AppContextRule]) -> [AppContextRule] {

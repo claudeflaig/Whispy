@@ -1,121 +1,95 @@
 import SwiftUI
 import AppKit
 
+enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
+    case general
+    case behavior
+    case hotkeys
+    case workflows
+    case context
+    case history
+    case access
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .general: return "Transkription"
+        case .behavior: return "Verhalten"
+        case .hotkeys: return "Tastenkürzel"
+        case .workflows: return "Workflows"
+        case .context: return "App-Kontext"
+        case .history: return "Verlauf"
+        case .access: return "Zugang & System"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .general: return "waveform"
+        case .behavior: return "slider.horizontal.3"
+        case .hotkeys: return "keyboard"
+        case .workflows: return "sparkles"
+        case .context: return "app.connected.to.app.below.fill"
+        case .history: return "clock.arrow.circlepath"
+        case .access: return "lock.shield"
+        }
+    }
+}
+
 struct SettingsContentView: View {
     @Bindable var appState: AppState
-    @State private var selectedTab = 0
+    @State private var selection: SettingsPane? = .general
 
     var body: some View {
-        VStack(spacing: 0) {
-            settingsHero
-
-            Picker("", selection: $selectedTab) {
-                Text("Workflows & Design").tag(0)
-                Text("Zugang & System").tag(1)
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 22)
-            .padding(.top, 10)
-            .padding(.bottom, 12)
-
-            ScrollView {
-                if selectedTab == 0 {
-                    CustomizeSettingsView(appState: appState)
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
-                } else {
-                    AccessSettingsView(appState: appState)
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
+        NavigationSplitView {
+            List(selection: $selection) {
+                ForEach(SettingsPane.allCases) { pane in
+                    Label {
+                        HStack {
+                            Text(pane.title)
+                            if pane == .access && !appState.accessibilityPermissionGranted {
+                                Spacer()
+                                Circle().fill(.orange).frame(width: 7, height: 7)
+                            }
+                        }
+                    } icon: {
+                        Image(systemName: pane.icon)
+                    }
+                    .tag(pane)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(settingsBackground)
+            .navigationSplitViewColumnWidth(min: 190, ideal: 200, max: 240)
+        } detail: {
+            let pane = selection ?? .general
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(pane.title)
+                        .font(.raycast(size: 22, weight: .bold))
+                        .padding(.horizontal, 16)
+                        .padding(.top, 4)
+
+                    if pane == .access {
+                        AccessSettingsView(appState: appState)
+                    } else {
+                        CustomizeSettingsView(appState: appState, pane: pane)
+                    }
+                }
+                .frame(maxWidth: 680, alignment: .topLeading)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 16)
+                .frame(maxWidth: .infinity, alignment: .top)
+            }
+            .navigationTitle(pane.title)
         }
-        .frame(minWidth: 760, minHeight: 800)
-        .background(settingsBackground)
+        .frame(minWidth: 780, minHeight: 560)
         .tint(.raycastRed)
         .onAppear {
             appState.refreshAccessibilityPermission()
-            selectedTab = defaultTabSelection
-        }
-    }
-
-    private var settingsHero: some View {
-        HStack(alignment: .center, spacing: 16) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.raycastRed.opacity(0.14))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(Color.raycastRed.opacity(0.26), lineWidth: 0.8)
-                    )
-                Image(systemName: "waveform.badge.microphone")
-                    .font(.raycast(size: 24, weight: .semibold))
-                    .foregroundStyle(Color.raycastRed)
-            }
-            .frame(width: 58, height: 58)
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Whispy Studio")
-                    .font(.raycast(size: 24, weight: .black))
-                    .foregroundStyle(.primary)
-                Text("Lokales WhisperKit, OpenAI und eigene Workflows — alles über deine Stimme.")
-                    .font(.raycast(size: 12.5, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: 20)
-
-            HStack(spacing: 8) {
-                heroMetric(title: "Lokal", value: "fn", color: .green)
-                heroMetric(title: "OpenAI", value: "fn ⇧", color: .blue)
-                heroMetric(title: "Status", value: appState.accessibilityPermissionGranted ? "Bereit" : "Setup", color: appState.accessibilityPermissionGranted ? .green : .orange)
+            if !appState.accessibilityPermissionGranted || !appState.isConfigured {
+                selection = .access
             }
         }
-        .padding(22)
-        .background(Rectangle().fill(.ultraThinMaterial))
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.primary.opacity(0.06)).frame(height: 0.7)
-        }
-    }
-
-    private func heroMetric(title: String, value: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title.uppercased())
-                .font(.raycast(size: 8.5, weight: .black))
-                .tracking(0.55)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.raycast(size: 13.5, weight: .bold))
-                .foregroundStyle(.primary)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.primary.opacity(0.045))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.7)
-        )
-    }
-
-    private var settingsBackground: some View {
-        ZStack {
-            Color(nsColor: .windowBackgroundColor)
-            Color.primary.opacity(0.014)
-        }
-    }
-
-    private var defaultTabSelection: Int {
-        if !appState.accessibilityPermissionGranted {
-            return 1
-        }
-        if appState.isConfigured && !BlitztextInstallLocationService.shouldOfferMoveToApplications {
-            return 0
-        }
-        return 1
     }
 }
 
@@ -175,14 +149,7 @@ private struct SettingsCard<Content: View>: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.primary.opacity(0.025))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.075), lineWidth: 0.7)
-        )
+        .glassCard(cornerRadius: 18)
     }
 }
 
@@ -237,12 +204,12 @@ struct AccessSettingsView: View {
                     Button("Bedienungshilfen öffnen") {
                         appState.requestAccessibilityPermission()
                     }
-                    .buttonStyle(SubtleButtonStyle())
+                    .glassButtonStyle()
 
                     Button("Erneut prüfen") {
                         appState.refreshAccessibilityPermission()
                     }
-                    .buttonStyle(SubtleButtonStyle())
+                    .glassButtonStyle()
                 }
             }
 
@@ -283,7 +250,7 @@ struct AccessSettingsView: View {
                         Button("Einfuegen") {
                             pasteAPIKeyFromClipboard()
                         }
-                        .buttonStyle(SubtleButtonStyle())
+                        .glassButtonStyle()
                     }
                 }
 
@@ -322,19 +289,19 @@ struct AccessSettingsView: View {
                         Button("Nach /Applications bewegen") {
                             moveToApplications()
                         }
-                        .buttonStyle(SubtleButtonStyle())
+                        .glassButtonStyle()
                     }
 
                     Button("Im Finder zeigen") {
                         revealInFinder(urls: [BlitztextInstallLocationService.bundleURL])
                     }
-                    .buttonStyle(SubtleButtonStyle())
+                    .glassButtonStyle()
 
                     if !BlitztextInstallLocationService.otherInstalledBundleURLs.isEmpty {
                         Button("Weitere Kopien zeigen") {
                             revealInFinder(urls: BlitztextInstallLocationService.otherInstalledBundleURLs)
                         }
-                        .buttonStyle(SubtleButtonStyle())
+                        .glassButtonStyle()
                     }
                 }
 
@@ -433,19 +400,19 @@ struct AccessSettingsView: View {
                         Button("Abbrechen") {
                             showCleanupOptions = false
                         }
-                        .buttonStyle(SubtleButtonStyle())
+                        .glassButtonStyle()
 
                         Button("Jetzt bereinigen") {
                             runCleanup()
                         }
-                        .buttonStyle(SubtleButtonStyle())
+                        .glassButtonStyle()
                         .foregroundStyle(.red)
                     }
                 } else {
                     Button("Entfernung vorbereiten") {
                         showCleanupOptions = true
                     }
-                    .buttonStyle(SubtleButtonStyle())
+                    .glassButtonStyle()
                 }
 
                 if let cleanupStatusText {
@@ -483,7 +450,7 @@ struct AccessSettingsView: View {
                             .foregroundStyle(.primary)
                     }
                 }
-                .buttonStyle(SubtleButtonStyle())
+                .glassButtonStyle()
                 .animation(.easeInOut(duration: 0.2), value: saved)
             }
         }
@@ -646,6 +613,8 @@ struct AccessSettingsView: View {
 
 struct CustomizeSettingsView: View {
     @Bindable var appState: AppState
+    var pane: SettingsPane = .general
+    @State private var historySearch = ""
     @State private var newTerm = ""
     @State private var availableAppOptions: [AppContextAppOption] = AppContextAppOption.defaultOptions
 
@@ -660,7 +629,8 @@ struct CustomizeSettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
 
-            // MARK: Lokaler Modus
+            if pane == .general {
+// MARK: Lokaler Modus
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel(text: "Sicherer Lokaler Modus")
 
@@ -761,8 +731,10 @@ struct CustomizeSettingsView: View {
                     }
                 }
             }
+            }
 
-            // MARK: App-Kontext
+            if pane == .context {
+// MARK: App-Kontext
             SettingsCard(
                 title: "App-Kontext",
                 subtitle: "Whispy erkennt die Ziel-App und nutzt Kategorie und Stil als Kontext. Wähle Apps aus einer Liste — keine Bundle-IDs nötig.",
@@ -775,11 +747,13 @@ struct CustomizeSettingsView: View {
                     }
                 }
             }
+            }
 
-            // MARK: Verlauf
+            if pane == .history {
+// MARK: Verlauf
             SettingsCard(
                 title: "Verlauf",
-                subtitle: "Die letzten 20 Diktate bleiben lokal gespeichert. Du kannst sie kopieren oder erneut einfügen.",
+                subtitle: "Die letzten \(AppState.historyLimit) Diktate bleiben lokal auf diesem Mac. Kopieren oder erneut einfügen.",
                 systemImage: "clock.arrow.circlepath",
                 accent: .blue
             ) {
@@ -789,7 +763,10 @@ struct CustomizeSettingsView: View {
                             .font(.raycast(size: 11.5, weight: .medium))
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(appState.dictationHistory.prefix(20)) { entry in
+                        TextField("Verlauf durchsuchen", text: $historySearch)
+                            .textFieldStyle(.roundedBorder)
+
+                        ForEach(filteredHistory) { entry in
                             HistoryEntryRow(entry: entry) {
                                 appState.copyToClipboard(entry.finalText)
                             } pasteAction: {
@@ -798,21 +775,23 @@ struct CustomizeSettingsView: View {
                         }
 
                         HStack {
-                            Text("Es werden maximal 20 Einträge gespeichert.")
+                            Text("Es werden maximal \(AppState.historyLimit) Einträge gespeichert.")
                                 .font(.raycast(size: 10.5))
                                 .foregroundStyle(.secondary)
                             Spacer()
                             Button("Verlauf löschen") {
                                 appState.clearDictationHistory()
                             }
-                            .buttonStyle(SubtleButtonStyle())
+                            .glassButtonStyle()
                             .font(.raycast(size: 10.5, weight: .medium))
                         }
                     }
                 }
             }
+            }
 
-            // MARK: Tastenkuerzel
+            if pane == .hotkeys {
+// MARK: Tastenkuerzel
             SettingsCard(
                 title: "Tastenkürzel",
                 subtitle: "Klicke auf ein Kürzel und drücke anschließend deine gewünschte Tastenkombination.",
@@ -894,8 +873,10 @@ struct CustomizeSettingsView: View {
                     .buttonStyle(SoftPillButtonStyle())
                 }
             }
+            }
 
-            // MARK: Whispy+
+            if pane == .workflows {
+// MARK: Whispy+
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel(text: "Whispy+")
 
@@ -1048,7 +1029,11 @@ struct CustomizeSettingsView: View {
                     .disabled(newTerm.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
+            }
 
+            if pane == .behavior {
+                behaviorSection
+            }
         }
         .padding(16)
         .onAppear {
@@ -1057,6 +1042,77 @@ struct CustomizeSettingsView: View {
     }
 
     private func workflowAccentColor(_ type: WorkflowType) -> Color { .secondary }
+
+    private var filteredHistory: [DictationHistoryEntry] {
+        let query = historySearch.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return appState.dictationHistory }
+        return appState.dictationHistory.filter {
+            $0.finalText.localizedCaseInsensitiveContains(query)
+                || ($0.appName?.localizedCaseInsensitiveContains(query) ?? false)
+        }
+    }
+
+    private var behaviorSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SettingsCard(
+                title: "Einfügen",
+                subtitle: "Was nach dem Diktat im Ziel-Textfeld passiert.",
+                systemImage: "text.cursor"
+            ) {
+                VStack(alignment: .leading, spacing: 12) {
+                    behaviorToggle(
+                        "Zwischenablage wiederherstellen",
+                        detail: "Nach dem Einfügen liegt wieder das in der Zwischenablage, was du vorher kopiert hattest.",
+                        isOn: $appState.appSettings.restoresClipboard
+                    )
+                    behaviorToggle(
+                        "Leerzeichen anhängen",
+                        detail: "Damit der nächste Satz direkt anschließt.",
+                        isOn: $appState.appSettings.appendsTrailingSpace
+                    )
+                    behaviorToggle(
+                        "Automatisch senden",
+                        detail: "Drückt nach dem Einfügen Return, etwa in Chats oder bei AI-Agenten.",
+                        isOn: $appState.appSettings.autoSubmitsAfterPaste
+                    )
+                }
+            }
+
+            SettingsCard(
+                title: "Aufnahme",
+                subtitle: "Esc verwirft eine laufende Aufnahme, ohne etwas einzufügen.",
+                systemImage: "mic"
+            ) {
+                VStack(alignment: .leading, spacing: 12) {
+                    behaviorToggle(
+                        "Töne bei Start und Stopp",
+                        detail: "Ein leiser Ton bestätigt, dass Whispy zuhört oder fertig ist.",
+                        isOn: $appState.appSettings.playsFeedbackSounds
+                    )
+                    behaviorToggle(
+                        "Systemton während der Aufnahme stummschalten",
+                        detail: "Musik und Videos landen nicht im Diktat. Danach wird der Ton wieder eingeschaltet.",
+                        isOn: $appState.appSettings.mutesSystemAudioWhileRecording
+                    )
+                }
+            }
+        }
+    }
+
+    private func behaviorToggle(_ title: String, detail: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.raycast(size: 12.5, weight: .semibold))
+                Text(detail)
+                    .font(.raycast(size: 10.5))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .toggleStyle(.switch)
+    }
 
     private func appContextRuleBinding(for category: AppContextRule.Category) -> Binding<AppContextRule> {
         Binding(
@@ -1276,7 +1332,7 @@ private struct AppContextRuleRow: View {
                     }
                     .font(.raycast(size: 10.5, weight: .medium))
                     .foregroundStyle(.secondary)
-                    .buttonStyle(SubtleButtonStyle())
+                    .glassButtonStyle()
                 }
 
                 Spacer()
@@ -1342,10 +1398,10 @@ private struct HistoryEntryRow: View {
 
             VStack(spacing: 5) {
                 Button("Kopieren", action: copyAction)
-                    .buttonStyle(SubtleButtonStyle())
+                    .glassButtonStyle()
                     .font(.raycast(size: 10, weight: .medium))
                 Button("Einfügen", action: pasteAction)
-                    .buttonStyle(SubtleButtonStyle())
+                    .glassButtonStyle()
                     .font(.raycast(size: 10, weight: .medium))
             }
         }
@@ -1459,7 +1515,7 @@ private struct HotkeyComboPicker: View {
                         .strokeBorder(borderColor, lineWidth: 0.8)
                 )
             }
-            .buttonStyle(SubtleButtonStyle())
+            .glassButtonStyle()
             .fixedSize(horizontal: true, vertical: false)
 
             Button {
@@ -1469,7 +1525,7 @@ private struct HotkeyComboPicker: View {
                     .font(.raycast(size: 13))
                     .foregroundStyle(combo.isEmpty ? .quaternary : .tertiary)
             }
-            .buttonStyle(SubtleButtonStyle())
+            .glassButtonStyle()
             .help("Kürzel löschen")
         }
         .onDisappear {

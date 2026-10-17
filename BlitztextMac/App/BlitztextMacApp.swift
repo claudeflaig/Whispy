@@ -29,10 +29,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         popover = NSPopover()
-        popover.contentSize = NSSize(width: 640, height: 720)
         popover.behavior = .transient
+        popover.animates = true
         popover.delegate = self
-        popover.contentViewController = NSHostingController(rootView: MenuBarView(appState: appState))
+        let popoverController = NSHostingController(rootView: MenuBarView(appState: appState))
+        popoverController.sizingOptions = .preferredContentSize
+        popover.contentViewController = popoverController
 
         NSApp.setActivationPolicy(.accessory)
 
@@ -81,15 +83,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         let hostingController = NSHostingController(rootView: SettingsContentView(appState: appState))
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 760, height: 820),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            contentRect: NSRect(x: 0, y: 0, width: 880, height: 640),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "Whispy Einstellungen"
+        window.titlebarAppearsTransparent = true
+        window.toolbarStyle = .unified
         window.contentViewController = hostingController
-        window.setContentSize(NSSize(width: 760, height: 820))
-        window.minSize = NSSize(width: 720, height: 700)
+        window.setContentSize(NSSize(width: 880, height: 640))
+        window.minSize = NSSize(width: 780, height: 560)
         window.center()
         window.isReleasedWhenClosed = false
         settingsWindow = window
@@ -148,7 +152,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private func handleHotkeyCancel() {
-        appState.activeWorkflow?.stop()
+        appState.cancelCurrentWorkflow()
     }
 
     @objc private func togglePopover() {
