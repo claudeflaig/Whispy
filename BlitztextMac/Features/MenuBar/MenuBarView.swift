@@ -8,6 +8,11 @@ struct MenuBarView: View {
             switch appState.page {
             case .main, .settings:
                 mainPage
+                #if SUITE
+                if let footer = WhispySuite.footer {
+                    footer
+                }
+                #endif
             case .onboarding:
                 onboardingPage
             case .workflow:

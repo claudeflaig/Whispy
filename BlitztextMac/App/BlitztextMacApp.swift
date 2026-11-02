@@ -1,5 +1,6 @@
 import SwiftUI
 
+#if !SUITE
 @main
 struct WhispyMacApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -10,6 +11,7 @@ struct WhispyMacApp: App {
         }
     }
 }
+#endif
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {

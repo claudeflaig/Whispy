@@ -1,7 +1,13 @@
 import Foundation
 
 enum AppSupportPaths {
+    #if SUITE
+    // Inside the Pastely suite the main bundle is Pastely's; the cleanup paths
+    // below must still point at Whispy's own files.
+    private static let bundleIdentifier = "app.claudeflaig.whispy"
+    #else
     private static let bundleIdentifier = Bundle.main.bundleIdentifier ?? "app.claudeflaig.whispy"
+    #endif
     private static let legacyAppSupportDirectoryName = "Blitztext"
     private static let appSupportDirectoryName = "Whispy"
 
