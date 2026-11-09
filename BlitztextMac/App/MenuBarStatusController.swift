@@ -71,6 +71,9 @@ final class MenuBarStatusController {
     private func tooltip(for status: MenuBarStatus) -> String {
         switch status {
         case .idle:
+            #if SUITE
+            if let toolTip = WhispySuite.idleToolTip { return toolTip }
+            #endif
             return "Whispy ist bereit"
         case .recording(let type):
             return "\(type.displayName): Aufnahme läuft"
@@ -96,6 +99,11 @@ final class MenuBarStatusController {
 
 private enum MenuBarStatusIconRenderer {
     static func makeImage(for status: MenuBarStatus, frame: Int) -> NSImage {
+        #if SUITE
+        if case .idle = status, let suiteIcon = WhispySuite.idleIcon {
+            return suiteIcon
+        }
+        #endif
         if case .idle = status, let baseImage = baseTemplateImage() {
             return baseImage
         }

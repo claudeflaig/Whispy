@@ -7,11 +7,14 @@ struct MenuBarView: View {
         VStack(spacing: 0) {
             switch appState.page {
             case .main, .settings:
-                mainPage
                 #if SUITE
-                if let footer = WhispySuite.footer {
-                    footer
+                if let home = WhispySuite.home {
+                    home
+                } else {
+                    mainPage
                 }
+                #else
+                mainPage
                 #endif
             case .onboarding:
                 onboardingPage
@@ -28,34 +31,40 @@ struct MenuBarView: View {
     private var mainPage: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
-
-            if !appState.isConfigured {
-                hintBanner(
-                    icon: "key.fill",
-                    text: "Einrichtung nötig: OpenAI-Key oder lokales Modell.",
-                    action: "Einrichten"
-                ) { appState.openSettings() }
-            } else if !appState.accessibilityPermissionGranted {
-                hintBanner(
-                    icon: "hand.raised.fill",
-                    text: "Zum Einfügen Bedienungshilfen erlauben.",
-                    action: "Erlauben"
-                ) { appState.requestAccessibilityPermission() }
-            } else if BlitztextInstallLocationService.shouldOfferMoveToApplications {
-                hintBanner(
-                    icon: "externaldrive.badge.plus",
-                    text: "Whispy nach /Applications verschieben.",
-                    action: "Prüfen"
-                ) { appState.openSettings() }
-            }
-
-            workflowList
-
-            if !appState.dictationHistory.isEmpty {
-                recentHistory
-            }
+            panelContent
         }
         .padding(14)
+    }
+
+    /// Everything on the main page below the header. MacSuite shows it in its
+    /// own popover, next to the suite's other tools.
+    @ViewBuilder
+    var panelContent: some View {
+        if !appState.isConfigured {
+            hintBanner(
+                icon: "key.fill",
+                text: "Einrichtung nötig: OpenAI-Key oder lokales Modell.",
+                action: "Einrichten"
+            ) { appState.openSettings() }
+        } else if !appState.accessibilityPermissionGranted {
+            hintBanner(
+                icon: "hand.raised.fill",
+                text: "Zum Einfügen Bedienungshilfen erlauben.",
+                action: "Erlauben"
+            ) { appState.requestAccessibilityPermission() }
+        } else if BlitztextInstallLocationService.shouldOfferMoveToApplications {
+            hintBanner(
+                icon: "externaldrive.badge.plus",
+                text: "Whispy nach /Applications verschieben.",
+                action: "Prüfen"
+            ) { appState.openSettings() }
+        }
+
+        workflowList
+
+        if !appState.dictationHistory.isEmpty {
+            recentHistory
+        }
     }
 
     private var header: some View {
@@ -454,3 +463,16 @@ struct SubtleButtonStyle: ButtonStyle {
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
+
+#if SUITE
+/// Whispy's part of MacSuite's home page: the main page without its header.
+struct WhispyPanel: View {
+    @Bindable var appState: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            MenuBarView(appState: appState).panelContent
+        }
+    }
+}
+#endif
