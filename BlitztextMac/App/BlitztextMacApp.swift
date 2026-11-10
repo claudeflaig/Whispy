@@ -81,6 +81,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         appState.isPopoverShown = false
         popover.performClose(nil)
 
+        #if SUITE
+        if let openSettings = WhispySuite.onOpenSettings {
+            openSettings()
+            return
+        }
+        #endif
+
         if let settingsWindow {
             settingsWindow.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)

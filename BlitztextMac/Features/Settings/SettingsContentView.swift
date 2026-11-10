@@ -88,11 +88,7 @@ struct SettingsContentView: View {
                     }
                     .padding(.horizontal, 4)
 
-                    if selection == .access {
-                        AccessSettingsView(appState: appState)
-                    } else {
-                        CustomizeSettingsView(appState: appState, pane: selection)
-                    }
+                    SettingsPaneContent(appState: appState, pane: selection)
                 }
                 .frame(maxWidth: 640, alignment: .topLeading)
                 .padding(.horizontal, 28)
@@ -112,6 +108,24 @@ struct SettingsContentView: View {
                 selection = .access
             }
         }
+    }
+}
+
+/// One pane's content, without the window's sidebar and header. MacSuite
+/// shows these in its own Settings window.
+struct SettingsPaneContent: View {
+    @Bindable var appState: AppState
+    let pane: SettingsPane
+
+    var body: some View {
+        Group {
+            if pane == .access {
+                AccessSettingsView(appState: appState)
+            } else {
+                CustomizeSettingsView(appState: appState, pane: pane)
+            }
+        }
+        .onAppear { appState.refreshAccessibilityPermission() }
     }
 }
 
