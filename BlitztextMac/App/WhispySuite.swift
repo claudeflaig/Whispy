@@ -40,6 +40,34 @@ public enum WhispySuite {
         return !appState.isConfigured || !appState.accessibilityPermissionGranted
     }
 
+    /// One workflow's dictation shortcut, for the suite's overview of all shortcuts.
+    public struct Shortcut {
+        public let title: String
+        public let subtitle: String
+        public let symbol: String
+        /// Mac key glyphs, one per key, e.g. ["fn", "⇧"]. Empty when not set.
+        public let keys: [String]
+    }
+
+    public static var shortcuts: [Shortcut] {
+        guard let appState = delegate?.appState else { return [] }
+        return WorkflowType.userVisibleHotkeyCases.map { type in
+            let combo = appState.appSettings.hotkeyCombos[type] ?? type.defaultHotkeyCombo
+            let keys = combo.isEmpty ? [] : HotkeyBadge.glyphs(for: combo.displayLabel)
+                .split(separator: " ").map(String.init)
+            return Shortcut(title: appState.displayName(for: type),
+                            subtitle: appState.workflowSubtitle(for: type),
+                            symbol: type.icon,
+                            keys: keys)
+        }
+    }
+
+    /// How the dictation shortcuts behave: held down, or pressed once.
+    public static var hotkeyModeDescription: String {
+        guard let appState = delegate?.appState else { return "" }
+        return appState.appSettings.hotkeyMode.description
+    }
+
     /// Whispy's part of the home page: hints, workflows and recent dictations,
     /// without Whispy's header.
     public static func panel() -> AnyView {
